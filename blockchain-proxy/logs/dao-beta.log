@@ -1,3 +1,0 @@
-2026-01-21 02:26:02,997 - tenant.dao-beta - INFO - RPC Request - Method: eth_blockNumber, Params: []
-2026-01-21 02:26:02,997 - tenant.dao-beta - INFO - Cache MISS - eth_blockNumber
-2026-01-21 02:26:03,286 - tenant.dao-beta - INFO - RPC Success - eth_blockNumber

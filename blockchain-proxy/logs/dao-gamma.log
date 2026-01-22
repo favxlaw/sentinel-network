@@ -1,3 +1,0 @@
-2026-01-21 02:26:03,289 - tenant.dao-gamma - INFO - RPC Request - Method: eth_blockNumber, Params: []
-2026-01-21 02:26:03,289 - tenant.dao-gamma - INFO - Cache MISS - eth_blockNumber
-2026-01-21 02:26:03,508 - tenant.dao-gamma - INFO - RPC Success - eth_blockNumber
