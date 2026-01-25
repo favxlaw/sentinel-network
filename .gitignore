@@ -6,3 +6,4 @@ __pycache__/
 *.pyc
 venv/
 venv
+echo "watcher-service/config/tenants.yaml
