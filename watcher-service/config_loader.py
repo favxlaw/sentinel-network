@@ -32,16 +32,28 @@ class ConfigLoader:
         with open(self.config_path, "r") as file:
             config_data = yaml.safe_load(file)
 
-        tenant_list = config_data.get("tenants", [])
+        tenants_data = config_data.get("tenants", {})
 
         self.tenants = []
-        for tenant_dict in tenant_list:
-            tenant = Tenant(
-                id=tenant_dict["id"],
-                watch_addresses=tenant_dict["watch_addresses"],
-                alert_threshold_eth=tenant_dict["alert_threshold_eth"],
-            )
-            self.tenants.append(tenant)
+        # Handle both list and dict formats
+        if isinstance(tenants_data, list):
+            # If it's a list, iterate normally
+            for tenant_dict in tenants_data:
+                tenant = Tenant(
+                    id=tenant_dict["id"],
+                    watch_addresses=tenant_dict["watch_addresses"],
+                    alert_threshold_eth=tenant_dict["alert_threshold_eth"],
+                )
+                self.tenants.append(tenant)
+        elif isinstance(tenants_data, dict):
+            # If it's a dict, extract id from key and merge with values
+            for tenant_id, tenant_config in tenants_data.items():
+                tenant = Tenant(
+                    id=tenant_id,
+                    watch_addresses=tenant_config["watch_addresses"],
+                    alert_threshold_eth=tenant_config["alert_threshold_eth"],
+                )
+                self.tenants.append(tenant)
 
         print(f"Loaded {len(self.tenants)} tenants from config")
         return self.tenants
