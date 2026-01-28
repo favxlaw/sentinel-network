@@ -18,33 +18,4 @@ build/
 # Virtual environments
 venv/
 venv
-env/
-.venv
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# Sensitive config
 watcher-service/config/tenants.yaml
-aggregator/config/tenants.yaml
-
-# Database files
-*.db
-*.db-journal
-watcher.db
-
-# Logs
-logs/
-*.log
-
-# OS files
-.DS_Store
-Thumbs.db
-
-# Local testing
-/tmp/
-.pytest_cache/
