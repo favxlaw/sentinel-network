@@ -74,7 +74,7 @@ class ConfigLoader:
         for tenant in self.tenants:
             for address in tenant.watch_addresses:
                 if not address.startswith("0x") or len(address) != 42:
-                    print(f"✗ Invalid address for {tenant.id}: {address}")
+                    print(f"Invalid address for {tenant.id}: {address}")
                     return False
 
         print("All addresses validated")
