@@ -1,26 +1,20 @@
-# Data source to get current AWS account ID
 data "aws_caller_identity" "current" {}
 
-# Data source to get current AWS region
 data "aws_region" "current" {}
 
-# Local variables for reusable values
 locals {
   account_id = var.aws_account_id != "" ? var.aws_account_id : data.aws_caller_identity.current.account_id
   region     = data.aws_region.current.name
 
-  # Log group ARNs
   system_log_group_arn = "arn:aws:logs:${local.region}:${local.account_id}:log-group:${var.log_group_prefix}/system/*"
   tenant_log_groups = [
     for tenant in var.tenants :
     "arn:aws:logs:${local.region}:${local.account_id}:log-group:${var.log_group_prefix}/tenant/${tenant.id}/*"
   ]
 
-  # S3 bucket ARN
   s3_bucket_arn = "arn:aws:s3:::${var.s3_bucket_prefix}-*"
 }
 
-# IAM Role for Bastion Host
 resource "aws_iam_role" "bastion" {
   name = "${var.project_name}-bastion-role"
 

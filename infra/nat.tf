@@ -1,4 +1,3 @@
-# Data source for Amazon Linux 2 AMI
 data "aws_ami" "amazon_linux_2" {
   most_recent = true
   owners      = ["amazon"]
@@ -14,27 +13,25 @@ data "aws_ami" "amazon_linux_2" {
   }
 }
 
-# Security Group for NAT Instance
 resource "aws_security_group" "nat_instance" {
-  name        = "sentinel-nat-instance-sg"
+  name        = "${var.project_name}-nat-instance-sg"
   description = "Security group for NAT instance"
   vpc_id      = aws_vpc.sentinel.id
 
-  # Allow inbound traffic from private subnet
   ingress {
     description = "Allow HTTP from private subnet"
-    from_port   = 80
-    to_port     = 80
+    from_port   = var.http_port
+    to_port     = var.http_port
     protocol    = "tcp"
-    cidr_blocks = ["10.0.2.0/24"]
+    cidr_blocks = [var.private_subnet_cidr]
   }
 
   ingress {
     description = "Allow HTTPS from private subnet"
-    from_port   = 443
-    to_port     = 443
+    from_port   = var.https_port
+    to_port     = var.https_port
     protocol    = "tcp"
-    cidr_blocks = ["10.0.2.0/24"]
+    cidr_blocks = [var.private_subnet_cidr]
   }
 
   ingress {
@@ -42,18 +39,17 @@ resource "aws_security_group" "nat_instance" {
     from_port   = 0
     to_port     = 65535
     protocol    = "tcp"
-    cidr_blocks = ["10.0.2.0/24"]
+    cidr_blocks = [var.private_subnet_cidr]
   }
 
   ingress {
     description = "Allow SSH from VPC"
-    from_port   = 22
-    to_port     = 22
+    from_port   = var.ssh_port
+    to_port     = var.ssh_port
     protocol    = "tcp"
-    cidr_blocks = ["10.0.0.0/16"]
+    cidr_blocks = [var.vpc_cidr]
   }
 
-  # Allow all outbound traffic
   egress {
     description = "Allow all outbound traffic"
     from_port   = 0
@@ -62,28 +58,32 @@ resource "aws_security_group" "nat_instance" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  tags = {
-    Name    = "sentinel-nat-instance-sg"
-    Project = "Sentinel Network"
-  }
+  tags = merge(
+    var.common_tags,
+    {
+      Name = "${var.project_name}-nat-instance-sg"
+      Role = "nat"
+    }
+  )
 }
 
-# Elastic IP for NAT Instance
 resource "aws_eip" "nat" {
   domain = "vpc"
 
-  tags = {
-    Name    = "sentinel-nat-eip"
-    Project = "Sentinel Network"
-  }
+  tags = merge(
+    var.common_tags,
+    {
+      Name = "${var.project_name}-nat-eip"
+      Role = "nat"
+    }
+  )
 
   depends_on = [aws_internet_gateway.sentinel]
 }
 
-# NAT Instance
 resource "aws_instance" "nat" {
   ami                         = data.aws_ami.amazon_linux_2.id
-  instance_type               = "t2.micro"
+  instance_type               = var.nat_instance_type
   subnet_id                   = aws_subnet.public.id
   vpc_security_group_ids      = [aws_security_group.nat_instance.id]
   associate_public_ip_address = true
@@ -109,20 +109,20 @@ resource "aws_instance" "nat" {
               service iptables save
               EOF
 
-  tags = {
-    Name    = "sentinel-nat-instance"
-    Project = "Sentinel Network"
-    Role    = "nat"
-  }
+  tags = merge(
+    var.common_tags,
+    {
+      Name = "${var.project_name}-nat-instance"
+      Role = "nat"
+    }
+  )
 }
 
-# Associate Elastic IP with NAT Instance
 resource "aws_eip_association" "nat" {
   instance_id   = aws_instance.nat.id
   allocation_id = aws_eip.nat.id
 }
 
-# Route for Private Subnet through NAT Instance
 resource "aws_route" "private_nat_instance" {
   route_table_id         = aws_route_table.private.id
   destination_cidr_block = "0.0.0.0/0"

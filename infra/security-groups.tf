@@ -1,4 +1,3 @@
-# Bastion Host Security Group
 resource "aws_security_group" "bastion" {
   name        = "${var.project_name}-bastion-sg"
   description = "Security group for bastion host"
@@ -9,7 +8,7 @@ resource "aws_security_group" "bastion" {
     from_port   = var.ssh_port
     to_port     = var.ssh_port
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]  # check update
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
   egress {
@@ -29,7 +28,6 @@ resource "aws_security_group" "bastion" {
   )
 }
 
-# NGINX Gateway Security Group
 resource "aws_security_group" "nginx" {
   name        = "${var.project_name}-nginx-sg"
   description = "Security group for NGINX gateway"
@@ -76,7 +74,6 @@ resource "aws_security_group" "nginx" {
   )
 }
 
-# Blockchain Proxy Security Group
 resource "aws_security_group" "blockchain_proxy" {
   name        = "${var.project_name}-blockchain-proxy-sg"
   description = "Security group for blockchain proxy service"

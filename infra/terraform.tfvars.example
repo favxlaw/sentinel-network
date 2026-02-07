@@ -1,0 +1,96 @@
+# Sentinel Network Terraform Variables
+# Copy this file to terraform.tfvars and customize for your environment
+
+# AWS Configuration
+aws_region = "us-east-1"
+
+# Project Configuration
+project_name = "sentinel"
+
+common_tags = {
+  Project     = "Sentinel Network"
+  ManagedBy   = "Terraform"
+  Environment = "production"
+  Owner       = "DevOps Team"
+  CostCenter  = "Engineering"
+}
+
+# Network Configuration
+vpc_cidr             = "10.0.0.0/16"
+public_subnet_cidr   = "10.0.1.0/24"
+private_subnet_cidr  = "10.0.10.0/24"
+availability_zone    = "us-east-1a"
+
+# Instance Configuration
+bastion_instance_type = "t2.micro"
+nat_instance_type     = "t2.micro"
+ipfs_instance_type    = "t3.medium"
+
+# Storage Configuration
+ipfs_root_volume_size  = 30
+ipfs_data_volume_size  = 100
+
+# IPFS Configuration
+ipfs_version = "v0.25.0"
+ipfs_path    = "/opt/sentinel/ipfs"
+
+# IPFS Addresses
+ipfs_api_bind_address     = "/ip4/127.0.0.1/tcp/5001"
+ipfs_gateway_bind_address = "/ip4/127.0.0.1/tcp/8080"
+
+# Service Ports
+ssh_port            = 22
+http_port           = 80
+https_port          = 443
+ethereum_rpc_port   = 8545
+fastapi_port        = 8000
+ipfs_api_port       = 5001
+ipfs_gateway_port   = 8080
+watcher_health_port = 8080
+
+# S3 Configuration
+s3_bucket_prefix = "sentinel-events"
+
+# CloudWatch Configuration
+log_group_prefix = "/sentinel"
+
+# Tenant Configuration
+tenants = []
+
+# AWS Account ID (auto-detected if left empty)
+aws_account_id = ""
+
+Outbound:
+  - Port 8000 to SG-Aggregator (FastAPI)
+SG-Blockchain-Proxy (sg-proxy-sentinel)
+
+Inbound:
+  - Port 8545 from SG-Watcher only
+  - Port 22 from SG-Bastion only
+Outbound:
+  - Port 443 to 0.0.0.0/0 (via NAT) - Alchemy/Infura
+SG-Watcher (sg-watcher-sentinel)
+
+Inbound:
+  - Port 22 from SG-Bastion only
+Outbound:
+  - Port 8545 to SG-Blockchain-Proxy
+  - Port 5001 to SG-IPFS (HTTP API)
+SG-IPFS (sg-ipfs-sentinel)
+
+Inbound:
+  - Port 5001 (HTTP API) from SG-Watcher and SG-Aggregator
+  - Port 22 from SG-Bastion only
+Outbound:
+  - None (private IPFS network)
+SG-Aggregator (sg-aggregator-sentinel)
+
+Inbound:
+  - Port 8000 from SG-NGINX only
+  - Port 22 from SG-Bastion only
+Outbound:
+  - Port 5001 to SG-IPFS
+EC2 Instance Design Instance Consolidation Strategy Option A: Minimal Cost (Recommended for Free Tier)
+Instance 1 (Public): t2.micro - Bastion + NAT Instance (dual purpose)
+Instance 2 (Public): t2.micro - NGINX Gateway
+Instance 3 (Private): t2.small - All backend services (Proxy + Watcher + IPFS + Aggregator)
