@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  ipfs:
+    image: ipfs/kubo:v0.25.0
+    container_name: sentinel-ipfs
+    ports:
+      - "5001:5001"   
+      - "4001:4001"   
+    volumes:
+      - ./data:/data/ipfs
+      - ./swarm.key:/data/ipfs/swarm.key:ro
+    environment:
+      IPFS_PROFILE: server
+      IPFS_PATH: /data/ipfs
+      LIBP2P_FORCE_PNET: 1
+    command: daemon --migrate=true --enable-gc
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "ipfs id || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3

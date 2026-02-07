@@ -1,9 +1,33 @@
-# Environment variables (NEVER commit!)
+# Terraform
+**/.terraform/*
+**/.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+*.tfplan
+tfplan
+
+# Terraform variables (contain sensitive data)
+terraform.tfvars
+terraform.tfvars.json
+*.auto.tfvars
+*.auto.tfvars.json
+
+# Environment variables
 .env
 .env.local
 .env.*.local
 **/.env
 **/.env.local
+
+# Credentials and secrets
+.aws/
+.credentials
+secrets.json
+*.pem
+*.pub
+*.key
+id_rsa*
+.ssh/
 
 # Python
 __pycache__/
@@ -14,8 +38,32 @@ dist/
 build/
 .Python
 *.so
-
-# Virtual environments
 venv/
-venv
+venv/
+env/
+ENV/
+
+# IDE and OS files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+logs/
+*.log
+
+# Local IPFS data
+ipfs/data/
+aggregator/__pycache__/
+watcher-service/__pycache__/
+blockchain-proxy/__pycache__/
+
+# Configuration files with sensitive data
 watcher-service/config/tenants.yaml
+
+# Temporary files
+*.tmp
+*.bak

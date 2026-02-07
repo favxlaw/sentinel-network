@@ -16,9 +16,25 @@ class BlockchainConnector:
     """
     def __init__(self):
         """Initialize Web3 connection to Ethereum"""
-        # Build RPC URL with API key
-        rpc_url = os.getenv('RPC_URL') + os.getenv('ALCHEMY_API_KEY')
-        
+        # Build RPC URL: prefer explicit RPC_URL env var, otherwise fall back to provider+key
+        explicit = os.getenv('RPC_URL')
+        if explicit:
+            rpc_url = explicit
+        else:
+            rpc_provider = os.getenv('RPC_PROVIDER', 'alchemy')
+            if rpc_provider == 'alchemy':
+                api_key = os.getenv('ALCHEMY_API_KEY', '')
+                if not api_key:
+                    raise ValueError('ALCHEMY_API_KEY not set')
+                rpc_url = f"https://eth-sepolia.g.alchemy.com/v2/{api_key}"
+            elif rpc_provider == 'infura':
+                api_key = os.getenv('INFURA_API_KEY', '')
+                if not api_key:
+                    raise ValueError('INFURA_API_KEY not set')
+                rpc_url = f"https://sepolia.infura.io/v3/{api_key}"
+            else:
+                raise ValueError(f"Unknown RPC provider: {rpc_provider}")
+
         # Create Web3 instance
         self.w3 = Web3(Web3.HTTPProvider(rpc_url))
         

@@ -46,13 +46,7 @@ class Config:
             '../watcher-service/config/tenants.yaml'  # Default to watcher-service location
         )
         
-        # IPFS connection settings
-        self.ipfs_host = os.getenv('IPFS_HOST', 'localhost')
-        try:
-            self.ipfs_port = int(os.getenv('IPFS_PORT', '5001'))
-        except ValueError:
-            logger.warning("Invalid IPFS_PORT, using default 5001")
-            self.ipfs_port = 5001
+        self.ipfs_api_url = os.getenv('IPFS_API_URL', '')
         
         # API server settings
         self.api_host = os.getenv('API_HOST', '0.0.0.0')
@@ -62,53 +56,26 @@ class Config:
             logger.warning("Invalid API_PORT, using default 8006")
             self.api_port = 8006
         
-        # Logging level
         self.log_level = os.getenv('LOG_LEVEL', 'INFO')
         
-        # Environment type (development, staging, production)
         self.environment = os.getenv('ENVIRONMENT', 'development')
         
-        # Optional: CloudWatch configuration (for AWS monitoring)
         self.cloudwatch_enabled = os.getenv('CLOUDWATCH_ENABLED', 'false').lower() == 'true'
         self.cloudwatch_log_group = os.getenv('CLOUDWATCH_LOG_GROUP', '/sentinel/aggregator')
     
     def _load_tenants(self) -> Dict[str, dict]:
-        """
-        Load tenant configuration from YAML file.
-        
-        Supports TWO formats:
-        
-        Format 1 (List with 'id' field):
-          tenants:
-            - id: alpha
-              api_key: key123
-              watch_addresses: [...]
-        
-        Format 2 (Dict with tenant_id as key):
-          tenants:
-            alpha:
-              api_key: key123
-              watch_addresses: [...]
-        
-        Returns:
-            Dictionary mapping tenant_id to tenant configuration dict.
-        """
         try:
-            # Check if file exists
             if not os.path.exists(self.tenant_config_path):
                 logger.error(f"Tenant config file not found: {self.tenant_config_path}")
                 return {}
             
-            # Read YAML file
             with open(self.tenant_config_path, 'r') as f:
                 config_data = yaml.safe_load(f)
             
-            # Handle empty file
             if not config_data:
                 logger.error("Tenant config file is empty")
                 return {}
             
-            # Extract tenants
             tenants_data = config_data.get('tenants', {})
             
             if not tenants_data:

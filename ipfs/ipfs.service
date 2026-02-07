@@ -1,0 +1,14 @@
+[Unit]
+Description=IPFS Daemon
+After=network.target
+
+[Service]
+Type=notify
+User=ubuntu
+Environment="IPFS_PATH=/opt/sentinel/ipfs"
+Environment="LIBP2P_FORCE_PNET=1"
+ExecStart=/usr/local/bin/ipfs daemon --enable-gc
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

@@ -11,6 +11,8 @@ from pydantic import BaseModel
 from web3 import Web3
 from web3.providers import HTTPProvider
 from pydantic import Field
+import yaml
+import secrets
 
 # FastAPI app
 app = FastAPI(title="Blockchain Proxy Service")
@@ -22,14 +24,22 @@ ALCHEMY_API_KEY = os.getenv('ALCHEMY_API_KEY', '')
 INFURA_API_KEY = os.getenv('INFURA_API_KEY', '')
 CACHE_TTL_SECONDS = int(os.getenv('CACHE_TTL_SECONDS', '300'))
 CACHE_BACKEND = os.getenv('CACHE_BACKEND', 'memory')
-REDIS_URL = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
+REDIS_URL = os.getenv('REDIS_URL', '')
 LOG_DIR = os.getenv('LOG_DIR', './logs')
 
 os.makedirs(LOG_DIR, exist_ok=True)
 
 
 def get_rpc_url() -> str:
-    """Get RPC endpoint URL based on provider"""
+    """Get RPC endpoint URL based on provider or explicit RPC_URL env var.
+
+    Prioritize `RPC_URL` environment variable to avoid hardcoding provider URLs
+    in code. If not provided, build using provider-specific defaults.
+    """
+    explicit = os.getenv('RPC_URL')
+    if explicit:
+        return explicit
+
     if RPC_PROVIDER == 'alchemy':
         if not ALCHEMY_API_KEY:
             raise ValueError("ALCHEMY_API_KEY not set")
@@ -334,13 +344,45 @@ def get_tenant_logger(tenant_id: str) -> logging.Logger:
     return logger
 
 
-# TENANT VALIDATION
-ALLOWED_TENANTS = ['dao-alpha', 'dao-beta', 'dao-gamma']
+# TENANT LOADING / AUTH
+TENANT_CONFIG_PATH = os.getenv('TENANT_CONFIG_PATH', '../watcher-service/config/tenants.yaml')
+
+def _load_tenants(path: str) -> dict:
+    """Load tenants YAML and return dict mapping tenant_id -> config dict"""
+    try:
+        with open(path, 'r') as f:
+            data = yaml.safe_load(f) or {}
+        tenants = data.get('tenants', {})
+
+        result = {}
+        if isinstance(tenants, list):
+            for t in tenants:
+                tid = t.get('id')
+                if tid:
+                    result[tid] = t
+        elif isinstance(tenants, dict):
+            for tid, cfg in tenants.items():
+                if isinstance(cfg, dict):
+                    cfg.setdefault('id', tid)
+                    result[tid] = cfg
+        return result
+    except Exception as e:
+        logging.error(f"Failed to load tenants from {path}: {e}")
+        return {}
 
 
-def validate_tenant(tenant_id: str) -> bool:
-    """Check if tenant is authorized"""
-    return tenant_id in ALLOWED_TENANTS
+_TENANTS = _load_tenants(TENANT_CONFIG_PATH)
+
+def get_tenant_by_api_key(api_key: str) -> Optional[str]:
+    """Return tenant_id for a given API key, or None"""
+    if not api_key:
+        return None
+
+    for tid, cfg in _TENANTS.items():
+        stored = cfg.get('api_key') or cfg.get('api_key', '')
+        if stored and secrets.compare_digest(stored, api_key):
+            return tid
+    return None
 
 
 # REQUEST/RESPONSE MODELS
@@ -397,7 +439,7 @@ async def health_check():
 @app.post("/rpc", response_model=RPCResponse)
 async def proxy_rpc(
     rpc_request: RPCRequest,
-    x_tenant_id: Optional[str] = Header(None)
+    x_tenant_key: Optional[str] = Header(None, alias="X-Tenant-Key")
 ):
     """
     Main proxy endpoint - forwards JSON-RPC requests to blockchain
@@ -410,21 +452,22 @@ async def proxy_rpc(
     5. Log everything
     6. Return response
     """
-    # Validate tenant header
-    if not x_tenant_id:
+    # Validate API key header and map to tenant id
+    if not x_tenant_key:
         raise HTTPException(
-            status_code=400, 
-            detail="Missing X-Tenant-ID header"
+            status_code=401,
+            detail="Missing X-Tenant-Key header"
         )
-    
-    if not validate_tenant(x_tenant_id):
+
+    tenant_id = get_tenant_by_api_key(x_tenant_key)
+    if not tenant_id:
         raise HTTPException(
-            status_code=403,
-            detail=f"Invalid tenant: {x_tenant_id}"
+            status_code=401,
+            detail="Invalid X-Tenant-Key"
         )
-    
+
     # Get tenant logger
-    logger = get_tenant_logger(x_tenant_id)
+    logger = get_tenant_logger(tenant_id)
     
     method = rpc_request.method
     params = rpc_request.params
@@ -432,7 +475,7 @@ async def proxy_rpc(
     logger.info(f"RPC Request - Method: {method}, Params: {params}")
     
     # Check cache (with tenant namespacing)
-    cached_result = cache.get(x_tenant_id, method, params)
+    cached_result = cache.get(tenant_id, method, params)
     if cached_result is not None:
         logger.info(f"Cache HIT - {method}")
         return RPCResponse(
@@ -459,8 +502,8 @@ async def proxy_rpc(
         result = response.get('result')
         
         # Cache if applicable (with tenant namespacing)
-        cache.set(x_tenant_id, method, params, result)
-        if cache.get(x_tenant_id, method, params) is not None:
+        cache.set(tenant_id, method, params, result)
+        if cache.get(tenant_id, method, params) is not None:
             logger.info(f"Cached response - {method}")
         
         logger.info(f"RPC Success - {method}")

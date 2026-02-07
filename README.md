@@ -1,23 +1,60 @@
 # Sentinel Network
 
-A multi-tenant blockchain monitoring system for DAOs to track on-chain activity securely and in isolation.
+A production-ready AWS infrastructure and multi-tenant blockchain monitoring system for DAOs to track on-chain activity with data isolation and Web3 integration.
 
-## What It Does
+## Project Overview
 
-Sentinel Network monitors Ethereum blockchain addresses and streams events to multiple tenants, each seeing only their own data. Built for Web3 infrastructure with cost-efficiency in mind.
+Sentinel Network is a comprehensive solution combining:
+- **Infrastructure as Code**: Complete AWS deployment via Terraform
+- **Blockchain Monitoring**: Real-time event polling from Ethereum
+- **Distributed Storage**: IPFS integration for event archival
+- **Multi-tenant API**: FastAPI service with tenant isolation
+
+## Key Features
+
+- **Tenant Isolation**: API key-based access control per tenant
+- **Event Streaming**: Real-time blockchain event detection
+- **IPFS Storage**: Distributed archival of blockchain data
+- **CloudWatch Monitoring**: Comprehensive logging and metrics
+- **Cost Optimized**: Single AZ design with right-sized instances
+- **Security Hardened**: Defense-in-depth security groups and IAM roles
+
+## Architecture Highlights
+
+**Network**
+- VPC: 10.0.0.0/16
+- Public Subnet: 10.0.1.0/24 (Bastion, NAT, NGINX)
+- Private Subnet: 10.0.10.0/24 (Services, IPFS)
+
+**Services**
+- Bastion: SSH gateway
+- IPFS Node: t3.medium with 100GB data volume
+- Aggregator API: Multi-tenant service
+- Blockchain Proxy: RPC caching layer
+- Watcher: Event polling
+
+## Quick Start
+
+### Infrastructure Deployment
+
+```bash
+cd infra/
+cp terraform.tfvars.example terraform.tfvars
+terraform init && terraform apply
+```
+
+### Verify Installation
+
+```bash
+# Get infrastructure outputs
+terraform output
+
+# SSH to IPFS via bastion
+ssh -i key.pem -J ubuntu@<bastion_ip> ubuntu@<ipfs_ip>
+systemctl status ipfs
+```
 
 ## Components
-
-- **Watcher Service**: Polls Ethereum via Alchemy, detects transactions, stores events in SQLite
-- **Aggregator API**: FastAPI service with tenant authentication - each tenant queries only their data
-- **Blockchain Proxy**: RPC request caching layer (memory/Redis backends)
-- **IPFS Integration**: Archives significant events to distributed storage
-
-## What's Implemented
-
-✅ **Core Architecture**
-- Tenant isolation via API keys (X-Tenant-Key header)
-- SQLite database with per-tenant tables
 - Alchemy RPC integration (Sepolia testnet)
 - Blockchain polling with catch-up logic
 
@@ -70,39 +107,3 @@ tenants:
 - `SENTINEL_DB_PATH` - Database location
 - `LOG_LEVEL` - Logging verbosity
 
-## Testing
-
-```bash
-# Health check (no auth required)
-curl http://localhost:8006/health
-
-# Query with tenant key
-curl -H "X-Tenant-Key: alpha-secret-key-123" \
-  http://localhost:8006/api/v1/events
-
-# Test auth failure
-curl -H "X-Tenant-Key: invalid" \
-  http://localhost:8006/api/v1/events  # Returns 401
-```
-
-## Architecture
-
-```
-Ethereum → Alchemy RPC → Watcher → SQLite DB → Aggregator API → Tenant
-                           ↓
-                         IPFS (significant events)
-```
-
-## Git Workflow
-
-- `main` - Protected branch (production ready)
-- Feature branches: `feature/watcher-ipfs-integration`
-- Conventional commits: `feat:`, `fix:`, `docs:`
-
-## Next Steps
-
-- [ ] Deploy to AWS (VPC, EC2, RDS)
-- [ ] Redis for production caching
-- [ ] NGINX gateway with subdomain routing
-- [ ] CloudWatch monitoring & alarms
-- [ ] Multi-chain support
