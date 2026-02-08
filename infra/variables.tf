@@ -1,0 +1,108 @@
+# Core configuration
+variable "project_name" {
+  description = "Project name for tagging"
+  type        = string
+}
+
+variable "common_tags" {
+  description = "Common resource tags"
+  type        = map(string)
+  default     = {}
+}
+
+variable "aws_region" {
+  description = "AWS region"
+  type        = string
+  default     = "us-east-1"
+}
+
+variable "admin_ip" {
+  description = "Admin public IP CIDR for SSH access (e.g., 203.0.113.10/32)"
+  type        = string
+}
+
+variable "key_name" {
+  description = "EC2 key pair name for SSH"
+  type        = string
+}
+
+# Network configuration
+variable "vpc_cidr" {
+  description = "CIDR block for VPC"
+  type        = string
+  default     = "10.0.0.0/16"
+}
+
+variable "public_subnet_cidr" {
+  description = "CIDR block for public subnet"
+  type        = string
+  default     = "10.0.1.0/24"
+}
+
+variable "private_subnet_cidr" {
+  description = "CIDR block for private subnet"
+  type        = string
+  default     = "10.0.10.0/24"
+}
+
+variable "availability_zone" {
+  description = "Availability zone for subnets"
+  type        = string
+  default     = "us-east-1a"
+}
+
+# Instance configuration
+variable "bastion_instance_type" {
+  description = "EC2 instance type for bastion + NAT"
+  type        = string
+  default     = "t2.micro"
+}
+
+variable "nginx_instance_type" {
+  description = "EC2 instance type for NGINX gateway"
+  type        = string
+  default     = "t2.micro"
+}
+
+variable "backend_instance_type" {
+  description = "EC2 instance type for backend (proxy+watcher+ipfs+aggregator)"
+  type        = string
+  default     = "t2.small"
+}
+
+# Service ports
+variable "ssh_port" {
+  description = "SSH port"
+  type        = number
+  default     = 22
+}
+
+variable "http_port" {
+  description = "HTTP port"
+  type        = number
+  default     = 80
+}
+
+variable "https_port" {
+  description = "HTTPS port"
+  type        = number
+  default     = 443
+}
+
+variable "ethereum_rpc_port" {
+  description = "Ethereum JSON-RPC port"
+  type        = number
+  default     = 8545
+}
+
+variable "fastapi_port" {
+  description = "Aggregator API port"
+  type        = number
+  default     = 8000
+}
+
+variable "ipfs_api_port" {
+  description = "IPFS API port"
+  type        = number
+  default     = 5001
+}

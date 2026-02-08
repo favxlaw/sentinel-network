@@ -6,9 +6,34 @@ Connects to Ethereum via Web3.py and processes blocks
 from web3 import Web3
 from typing import List, Dict, Optional
 import os
+import yaml
+import re
 from dotenv import load_dotenv
 
 load_dotenv()
+
+
+def _interpolate_env(value):
+    if isinstance(value, str):
+        def replacer(match):
+            var_name = match.group(1)
+            return os.getenv(var_name, match.group(0))
+        return re.sub(r"\$\{([^}]+)\}", replacer, value)
+    if isinstance(value, dict):
+        return {k: _interpolate_env(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_interpolate_env(v) for v in value]
+    return value
+
+
+def _load_services_config():
+    default_path = os.path.join(os.path.dirname(__file__), "../config/services.yaml")
+    config_path = os.getenv("SERVICE_CONFIG_PATH", default_path)
+    if not os.path.exists(config_path):
+        return {}
+    with open(config_path, "r") as f:
+        data = yaml.safe_load(f) or {}
+    return _interpolate_env(data)
 
 class BlockchainConnector:
     """
@@ -16,9 +41,29 @@ class BlockchainConnector:
     """
     def __init__(self):
         """Initialize Web3 connection to Ethereum"""
-        # Build RPC URL with API key
-        rpc_url = os.getenv('RPC_URL') + os.getenv('ALCHEMY_API_KEY')
-        
+        services_cfg = _load_services_config()
+        watcher_cfg = services_cfg.get("watcher", {})
+
+        # Build RPC URL: prefer explicit RPC_URL env var, otherwise use services.yaml
+        explicit = os.getenv("RPC_URL")
+        if explicit:
+            rpc_url = explicit
+        elif watcher_cfg.get("rpc_url"):
+            rpc_url = watcher_cfg.get("rpc_url")
+        else:
+            rpc_provider = os.getenv("RPC_PROVIDER", "alchemy")
+            if rpc_provider == "alchemy":
+                api_key = os.getenv("ALCHEMY_API_KEY", "")
+                if not api_key:
+                    raise ValueError("ALCHEMY_API_KEY not set")
+                rpc_url = f"https://eth-sepolia.g.alchemy.com/v2/{api_key}"
+            elif rpc_provider == "infura":
+                api_key = os.getenv("INFURA_API_KEY", "")
+                if not api_key:
+                    raise ValueError("INFURA_API_KEY not set")
+                rpc_url = f"https://sepolia.infura.io/v3/{api_key}"
+            else:
+                raise ValueError(f"Unknown RPC provider: {rpc_provider}")
         # Create Web3 instance
         self.w3 = Web3(Web3.HTTPProvider(rpc_url))
         
