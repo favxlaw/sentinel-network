@@ -2,13 +2,36 @@ import os
 import yaml
 import logging
 import secrets
-from typing import Dict, Optional
+import re
+from typing import Dict, Optional, Any
 from pathlib import Path
 from dotenv import load_dotenv
 
 load_dotenv()
 
 logger = logging.getLogger(__name__)
+
+def _interpolate_env(value):
+    if isinstance(value, str):
+        def replacer(match):
+            var_name = match.group(1)
+            return os.getenv(var_name, match.group(0))
+        return re.sub(r"\$\{([^}]+)\}", replacer, value)
+    if isinstance(value, dict):
+        return {k: _interpolate_env(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_interpolate_env(v) for v in value]
+    return value
+
+
+def load_services_config() -> Dict[str, Any]:
+    default_path = os.path.join(os.path.dirname(__file__), "../config/services.yaml")
+    config_path = os.getenv("SERVICE_CONFIG_PATH", default_path)
+    if not os.path.exists(config_path):
+        return {}
+    with open(config_path, "r") as f:
+        data = yaml.safe_load(f) or {}
+    return _interpolate_env(data)
 
 
 class Config:
@@ -31,42 +54,50 @@ class Config:
         """
         Load configuration from environment variables.
         """
-        
+        services_cfg = load_services_config()
+        agg_cfg = services_cfg.get("aggregator", {})
+        paths_cfg = services_cfg.get("paths", {})
+
         # Database configuration - point to watcher's database
         # Use absolute path to avoid issues with working directory
         default_db = os.path.join(
             os.path.dirname(__file__),
             '../watcher-service/watcher.db'
         )
-        self.db_path = os.getenv('SENTINEL_DB_PATH', default_db)
+        self.db_path = os.getenv(
+            'SENTINEL_DB_PATH',
+            agg_cfg.get('db_path', paths_cfg.get('watcher_db', default_db))
+        )
         
         # Tenant configuration file location
         self.tenant_config_path = os.getenv(
             'TENANT_CONFIG_PATH',
-            '../watcher-service/config/tenants.yaml'  # Default to watcher-service location
+            agg_cfg.get('tenant_config_path', paths_cfg.get('tenant_config', '../watcher-service/config/tenants.yaml'))
         )
-        
         # IPFS connection settings
-        self.ipfs_host = os.getenv('IPFS_HOST', 'localhost')
+        self.ipfs_host = os.getenv('IPFS_HOST', agg_cfg.get('ipfs_host', 'localhost'))
         try:
-            self.ipfs_port = int(os.getenv('IPFS_PORT', '5001'))
+            self.ipfs_port = int(os.getenv('IPFS_PORT', str(agg_cfg.get('ipfs_port', 5001))))
         except ValueError:
             logger.warning("Invalid IPFS_PORT, using default 5001")
             self.ipfs_port = 5001
+
+        self.ipfs_api_url = os.getenv('IPFS_API_URL', agg_cfg.get('ipfs_api_url', ''))
+        if not self.ipfs_api_url:
+            self.ipfs_api_url = f"http://{self.ipfs_host}:{self.ipfs_port}"
         
         # API server settings
-        self.api_host = os.getenv('API_HOST', '0.0.0.0')
+        self.api_host = os.getenv('API_HOST', agg_cfg.get('host', '0.0.0.0'))
         try:
-            self.api_port = int(os.getenv('API_PORT', '8006'))
+            self.api_port = int(os.getenv('API_PORT', str(agg_cfg.get('port', 8000))))
         except ValueError:
             logger.warning("Invalid API_PORT, using default 8006")
             self.api_port = 8006
         
-        # Logging level
-        self.log_level = os.getenv('LOG_LEVEL', 'INFO')
-        
+        self.log_level = os.getenv('LOG_LEVEL', agg_cfg.get('log_level', 'INFO'))
+
         # Environment type (development, staging, production)
-        self.environment = os.getenv('ENVIRONMENT', 'development')
+        self.environment = os.getenv('ENVIRONMENT', agg_cfg.get('environment', 'development'))
         
         # Optional: CloudWatch configuration (for AWS monitoring)
         self.cloudwatch_enabled = os.getenv('CLOUDWATCH_ENABLED', 'false').lower() == 'true'
@@ -102,6 +133,7 @@ class Config:
             # Read YAML file
             with open(self.tenant_config_path, 'r') as f:
                 config_data = yaml.safe_load(f)
+            config_data = _interpolate_env(config_data or {})
             
             # Handle empty file
             if not config_data:

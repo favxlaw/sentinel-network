@@ -4,7 +4,33 @@ Handles SQLite operations with tenant-partitioned tables
 """
 
 import sqlite3
+import os
+import yaml
+import re
 from contextlib import contextmanager
+
+
+def _interpolate_env(value):
+    if isinstance(value, str):
+        def replacer(match):
+            var_name = match.group(1)
+            return os.getenv(var_name, match.group(0))
+        return re.sub(r"\$\{([^}]+)\}", replacer, value)
+    if isinstance(value, dict):
+        return {k: _interpolate_env(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_interpolate_env(v) for v in value]
+    return value
+
+
+def _load_services_config():
+    default_path = os.path.join(os.path.dirname(__file__), "../config/services.yaml")
+    config_path = os.getenv("SERVICE_CONFIG_PATH", default_path)
+    if not os.path.exists(config_path):
+        return {}
+    with open(config_path, "r") as f:
+        data = yaml.safe_load(f) or {}
+    return _interpolate_env(data)
 
 
 class DatabaseManager:
@@ -12,7 +38,17 @@ class DatabaseManager:
     Manages SQLite database for event storage
     """
     
-    def __init__(self, db_path: str = "watcher.db"):
+    def __init__(self, db_path: str = None):
+        if db_path is None:
+            services_cfg = _load_services_config()
+            watcher_cfg = services_cfg.get("watcher", {})
+            paths_cfg = services_cfg.get("paths", {})
+            db_path = (
+                os.getenv("SENTINEL_DB_PATH")
+                or watcher_cfg.get("db_path")
+                or paths_cfg.get("watcher_db")
+                or "watcher.db"
+            )
         self.db_path = db_path
         self._init_database()
     

@@ -1,45 +1,73 @@
 resource "aws_security_group" "bastion" {
-  name        = "${var.project_name}-bastion-sg"
-  description = "Security group for bastion host"
+  name        = "sg-bastion-sentinel"
+  description = "Bastion host security group"
   vpc_id      = aws_vpc.sentinel.id
 
   ingress {
-    description = "SSH from anywhere"
+    description = "SSH from admin IP"
     from_port   = var.ssh_port
     to_port     = var.ssh_port
+    protocol    = "tcp"
+    cidr_blocks = [var.admin_ip]
+  }
+
+  egress {
+    description = "SSH to private subnet"
+    from_port   = var.ssh_port
+    to_port     = var.ssh_port
+    protocol    = "tcp"
+    cidr_blocks = [var.private_subnet_cidr]
+  }
+
+  tags = merge(
+    var.common_tags,
+    {
+      Name = "sg-bastion-sentinel"
+    }
+  )
+}
+
+resource "aws_security_group" "nat" {
+  name        = "sg-nat-sentinel"
+  description = "NAT instance security group"
+  vpc_id      = aws_vpc.sentinel.id
+
+  ingress {
+    description = "All traffic from private subnet"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = [var.private_subnet_cidr]
+  }
+
+  egress {
+    description = "HTTP to internet"
+    from_port   = var.http_port
+    to_port     = var.http_port
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
 
   egress {
-    description = "Allow all outbound"
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
+    description = "HTTPS to internet"
+    from_port   = var.https_port
+    to_port     = var.https_port
+    protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
 
   tags = merge(
     var.common_tags,
     {
-      Name = "${var.project_name}-bastion-sg"
-      Role = "bastion"
+      Name = "sg-nat-sentinel"
     }
   )
 }
 
 resource "aws_security_group" "nginx" {
-  name        = "${var.project_name}-nginx-sg"
-  description = "Security group for NGINX gateway"
+  name        = "sg-nginx-sentinel"
+  description = "NGINX gateway security group"
   vpc_id      = aws_vpc.sentinel.id
-
-  ingress {
-    description = "HTTP from internet"
-    from_port   = var.http_port
-    to_port     = var.http_port
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
 
   ingress {
     description = "HTTPS from internet"
@@ -58,34 +86,25 @@ resource "aws_security_group" "nginx" {
   }
 
   egress {
-    description = "Allow all outbound"
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
+    description     = "Aggregator API"
+    from_port       = var.fastapi_port
+    to_port         = var.fastapi_port
+    protocol        = "tcp"
+    security_groups = [aws_security_group.aggregator.id]
   }
 
   tags = merge(
     var.common_tags,
     {
-      Name = "${var.project_name}-nginx-sg"
-      Role = "nginx"
+      Name = "sg-nginx-sentinel"
     }
   )
 }
 
-resource "aws_security_group" "blockchain_proxy" {
-  name        = "${var.project_name}-blockchain-proxy-sg"
-  description = "Security group for blockchain proxy service"
+resource "aws_security_group" "proxy" {
+  name        = "sg-proxy-sentinel"
+  description = "Blockchain proxy security group"
   vpc_id      = aws_vpc.sentinel.id
-
-  ingress {
-    description     = "JSON-RPC from NGINX"
-    from_port       = var.ethereum_rpc_port
-    to_port         = var.ethereum_rpc_port
-    protocol        = "tcp"
-    security_groups = [aws_security_group.nginx.id]
-  }
 
   ingress {
     description     = "JSON-RPC from watcher"
@@ -104,26 +123,24 @@ resource "aws_security_group" "blockchain_proxy" {
   }
 
   egress {
-    description = "Allow all outbound"
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
+    description = "HTTPS to internet via NAT"
+    from_port   = var.https_port
+    to_port     = var.https_port
+    protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
 
   tags = merge(
     var.common_tags,
     {
-      Name = "${var.project_name}-blockchain-proxy-sg"
-      Role = "blockchain-proxy"
+      Name = "sg-proxy-sentinel"
     }
   )
 }
 
-# Watcher Service Security Group
 resource "aws_security_group" "watcher" {
-  name        = "${var.project_name}-watcher-sg"
-  description = "Security group for watcher service"
+  name        = "sg-watcher-sentinel"
+  description = "Watcher security group"
   vpc_id      = aws_vpc.sentinel.id
 
   ingress {
@@ -134,35 +151,33 @@ resource "aws_security_group" "watcher" {
     security_groups = [aws_security_group.bastion.id]
   }
 
-  ingress {
-    description     = "Health check from aggregator"
-    from_port       = var.watcher_health_port
-    to_port         = var.watcher_health_port
+  egress {
+    description     = "JSON-RPC to proxy"
+    from_port       = var.ethereum_rpc_port
+    to_port         = var.ethereum_rpc_port
     protocol        = "tcp"
-    security_groups = [aws_security_group.aggregator.id]
+    security_groups = [aws_security_group.proxy.id]
   }
 
   egress {
-    description = "Allow all outbound"
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
+    description     = "IPFS API to IPFS"
+    from_port       = var.ipfs_api_port
+    to_port         = var.ipfs_api_port
+    protocol        = "tcp"
+    security_groups = [aws_security_group.ipfs.id]
   }
 
   tags = merge(
     var.common_tags,
     {
-      Name = "${var.project_name}-watcher-sg"
-      Role = "watcher"
+      Name = "sg-watcher-sentinel"
     }
   )
 }
 
-# IPFS Security Group
 resource "aws_security_group" "ipfs" {
-  name        = "${var.project_name}-ipfs-sg"
-  description = "Security group for IPFS node"
+  name        = "sg-ipfs-sentinel"
+  description = "IPFS security group"
   vpc_id      = aws_vpc.sentinel.id
 
   ingress {
@@ -182,14 +197,6 @@ resource "aws_security_group" "ipfs" {
   }
 
   ingress {
-    description     = "IPFS Gateway from aggregator"
-    from_port       = var.ipfs_gateway_port
-    to_port         = var.ipfs_gateway_port
-    protocol        = "tcp"
-    security_groups = [aws_security_group.aggregator.id]
-  }
-
-  ingress {
     description     = "SSH from bastion"
     from_port       = var.ssh_port
     to_port         = var.ssh_port
@@ -197,27 +204,19 @@ resource "aws_security_group" "ipfs" {
     security_groups = [aws_security_group.bastion.id]
   }
 
-  egress {
-    description = "Allow all outbound"
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
+  egress = []
 
   tags = merge(
     var.common_tags,
     {
-      Name = "${var.project_name}-ipfs-sg"
-      Role = "ipfs"
+      Name = "sg-ipfs-sentinel"
     }
   )
 }
 
-# Aggregator API Security Group
 resource "aws_security_group" "aggregator" {
-  name        = "${var.project_name}-aggregator-sg"
-  description = "Security group for aggregator API"
+  name        = "sg-aggregator-sentinel"
+  description = "Aggregator security group"
   vpc_id      = aws_vpc.sentinel.id
 
   ingress {
@@ -237,51 +236,17 @@ resource "aws_security_group" "aggregator" {
   }
 
   egress {
-    description = "Allow all outbound"
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  tags = merge(
-    var.common_tags,
-    {
-      Name = "${var.project_name}-aggregator-sg"
-      Role = "aggregator"
-    }
-  )
-}
-
-# Tenant Security Groups - Dynamic creation based on var.tenants
-resource "aws_security_group" "tenant" {
-  for_each = { for tenant in var.tenants : tenant.id => tenant }
-
-  name        = "${var.project_name}-tenant-${each.value.id}-sg"
-  description = "Security group for ${each.value.id} tenant"
-  vpc_id      = aws_vpc.sentinel.id
-
-  ingress {
-    description     = "HTTPS from NGINX for ${each.value.id}"
-    from_port       = var.https_port
-    to_port         = var.https_port
+    description     = "IPFS API to IPFS"
+    from_port       = var.ipfs_api_port
+    to_port         = var.ipfs_api_port
     protocol        = "tcp"
-    security_groups = [aws_security_group.nginx.id]
-  }
-
-  egress {
-    description = "Allow all outbound"
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
+    security_groups = [aws_security_group.ipfs.id]
   }
 
   tags = merge(
     var.common_tags,
     {
-      Name   = "${var.project_name}-tenant-${each.value.id}-sg"
-      Tenant = each.value.id
+      Name = "sg-aggregator-sentinel"
     }
   )
 }
