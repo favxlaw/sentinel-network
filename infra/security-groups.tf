@@ -1,5 +1,5 @@
 resource "aws_security_group" "bastion" {
-  name        = "sg-bastion-sentinel"
+  name        = "sentinel-bastion-sg"
   description = "Bastion host security group"
   vpc_id      = aws_vpc.sentinel.id
 
@@ -28,7 +28,7 @@ resource "aws_security_group" "bastion" {
 }
 
 resource "aws_security_group" "nat" {
-  name        = "sg-nat-sentinel"
+  name        = "sentinel-nat-sg"
   description = "NAT instance security group"
   vpc_id      = aws_vpc.sentinel.id
 
@@ -65,33 +65,9 @@ resource "aws_security_group" "nat" {
 }
 
 resource "aws_security_group" "nginx" {
-  name        = "sg-nginx-sentinel"
+  name        = "sentinel-nginx-sg"
   description = "NGINX gateway security group"
   vpc_id      = aws_vpc.sentinel.id
-
-  ingress {
-    description = "HTTPS from internet"
-    from_port   = var.https_port
-    to_port     = var.https_port
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  ingress {
-    description     = "SSH from bastion"
-    from_port       = var.ssh_port
-    to_port         = var.ssh_port
-    protocol        = "tcp"
-    security_groups = [aws_security_group.bastion.id]
-  }
-
-  egress {
-    description     = "Aggregator API"
-    from_port       = var.fastapi_port
-    to_port         = var.fastapi_port
-    protocol        = "tcp"
-    security_groups = [aws_security_group.aggregator.id]
-  }
 
   tags = merge(
     var.common_tags,
@@ -102,33 +78,9 @@ resource "aws_security_group" "nginx" {
 }
 
 resource "aws_security_group" "proxy" {
-  name        = "sg-proxy-sentinel"
+  name        = "sentinel-proxy-sg"
   description = "Blockchain proxy security group"
   vpc_id      = aws_vpc.sentinel.id
-
-  ingress {
-    description     = "JSON-RPC from watcher"
-    from_port       = var.ethereum_rpc_port
-    to_port         = var.ethereum_rpc_port
-    protocol        = "tcp"
-    security_groups = [aws_security_group.watcher.id]
-  }
-
-  ingress {
-    description     = "SSH from bastion"
-    from_port       = var.ssh_port
-    to_port         = var.ssh_port
-    protocol        = "tcp"
-    security_groups = [aws_security_group.bastion.id]
-  }
-
-  egress {
-    description = "HTTPS to internet via NAT"
-    from_port   = var.https_port
-    to_port     = var.https_port
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
 
   tags = merge(
     var.common_tags,
@@ -139,33 +91,9 @@ resource "aws_security_group" "proxy" {
 }
 
 resource "aws_security_group" "watcher" {
-  name        = "sg-watcher-sentinel"
+  name        = "sentinel-watcher-sg"
   description = "Watcher security group"
   vpc_id      = aws_vpc.sentinel.id
-
-  ingress {
-    description     = "SSH from bastion"
-    from_port       = var.ssh_port
-    to_port         = var.ssh_port
-    protocol        = "tcp"
-    security_groups = [aws_security_group.bastion.id]
-  }
-
-  egress {
-    description     = "JSON-RPC to proxy"
-    from_port       = var.ethereum_rpc_port
-    to_port         = var.ethereum_rpc_port
-    protocol        = "tcp"
-    security_groups = [aws_security_group.proxy.id]
-  }
-
-  egress {
-    description     = "IPFS API to IPFS"
-    from_port       = var.ipfs_api_port
-    to_port         = var.ipfs_api_port
-    protocol        = "tcp"
-    security_groups = [aws_security_group.ipfs.id]
-  }
 
   tags = merge(
     var.common_tags,
@@ -176,35 +104,9 @@ resource "aws_security_group" "watcher" {
 }
 
 resource "aws_security_group" "ipfs" {
-  name        = "sg-ipfs-sentinel"
+  name        = "sentinel-ipfs-sg"
   description = "IPFS security group"
   vpc_id      = aws_vpc.sentinel.id
-
-  ingress {
-    description     = "IPFS API from watcher"
-    from_port       = var.ipfs_api_port
-    to_port         = var.ipfs_api_port
-    protocol        = "tcp"
-    security_groups = [aws_security_group.watcher.id]
-  }
-
-  ingress {
-    description     = "IPFS API from aggregator"
-    from_port       = var.ipfs_api_port
-    to_port         = var.ipfs_api_port
-    protocol        = "tcp"
-    security_groups = [aws_security_group.aggregator.id]
-  }
-
-  ingress {
-    description     = "SSH from bastion"
-    from_port       = var.ssh_port
-    to_port         = var.ssh_port
-    protocol        = "tcp"
-    security_groups = [aws_security_group.bastion.id]
-  }
-
-  egress = []
 
   tags = merge(
     var.common_tags,
@@ -215,33 +117,9 @@ resource "aws_security_group" "ipfs" {
 }
 
 resource "aws_security_group" "aggregator" {
-  name        = "sg-aggregator-sentinel"
+  name        = "sentinel-aggregator-sg"
   description = "Aggregator security group"
   vpc_id      = aws_vpc.sentinel.id
-
-  ingress {
-    description     = "FastAPI from NGINX"
-    from_port       = var.fastapi_port
-    to_port         = var.fastapi_port
-    protocol        = "tcp"
-    security_groups = [aws_security_group.nginx.id]
-  }
-
-  ingress {
-    description     = "SSH from bastion"
-    from_port       = var.ssh_port
-    to_port         = var.ssh_port
-    protocol        = "tcp"
-    security_groups = [aws_security_group.bastion.id]
-  }
-
-  egress {
-    description     = "IPFS API to IPFS"
-    from_port       = var.ipfs_api_port
-    to_port         = var.ipfs_api_port
-    protocol        = "tcp"
-    security_groups = [aws_security_group.ipfs.id]
-  }
 
   tags = merge(
     var.common_tags,
@@ -249,4 +127,156 @@ resource "aws_security_group" "aggregator" {
       Name = "sg-aggregator-sentinel"
     }
   )
+}
+
+# ---- Security group rules (split to avoid cyclic dependencies) ----
+
+resource "aws_security_group_rule" "nginx_https_in" {
+  type              = "ingress"
+  security_group_id = aws_security_group.nginx.id
+  description       = "HTTPS from internet"
+  from_port         = var.https_port
+  to_port           = var.https_port
+  protocol          = "tcp"
+  cidr_blocks       = ["0.0.0.0/0"]
+}
+
+resource "aws_security_group_rule" "nginx_ssh_in" {
+  type                     = "ingress"
+  security_group_id        = aws_security_group.nginx.id
+  description              = "SSH from bastion"
+  from_port                = var.ssh_port
+  to_port                  = var.ssh_port
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.bastion.id
+}
+
+resource "aws_security_group_rule" "nginx_fastapi_out" {
+  type                     = "egress"
+  security_group_id        = aws_security_group.nginx.id
+  description              = "Aggregator API"
+  from_port                = var.fastapi_port
+  to_port                  = var.fastapi_port
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.aggregator.id
+}
+
+resource "aws_security_group_rule" "proxy_rpc_in" {
+  type                     = "ingress"
+  security_group_id        = aws_security_group.proxy.id
+  description              = "JSON-RPC from watcher"
+  from_port                = var.ethereum_rpc_port
+  to_port                  = var.ethereum_rpc_port
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.watcher.id
+}
+
+resource "aws_security_group_rule" "proxy_ssh_in" {
+  type                     = "ingress"
+  security_group_id        = aws_security_group.proxy.id
+  description              = "SSH from bastion"
+  from_port                = var.ssh_port
+  to_port                  = var.ssh_port
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.bastion.id
+}
+
+resource "aws_security_group_rule" "proxy_https_out" {
+  type              = "egress"
+  security_group_id = aws_security_group.proxy.id
+  description       = "HTTPS to internet via NAT"
+  from_port         = var.https_port
+  to_port           = var.https_port
+  protocol          = "tcp"
+  cidr_blocks       = ["0.0.0.0/0"]
+}
+
+resource "aws_security_group_rule" "watcher_ssh_in" {
+  type                     = "ingress"
+  security_group_id        = aws_security_group.watcher.id
+  description              = "SSH from bastion"
+  from_port                = var.ssh_port
+  to_port                  = var.ssh_port
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.bastion.id
+}
+
+resource "aws_security_group_rule" "watcher_rpc_out" {
+  type                     = "egress"
+  security_group_id        = aws_security_group.watcher.id
+  description              = "JSON-RPC to proxy"
+  from_port                = var.ethereum_rpc_port
+  to_port                  = var.ethereum_rpc_port
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.proxy.id
+}
+
+resource "aws_security_group_rule" "watcher_ipfs_out" {
+  type                     = "egress"
+  security_group_id        = aws_security_group.watcher.id
+  description              = "IPFS API to IPFS"
+  from_port                = var.ipfs_api_port
+  to_port                  = var.ipfs_api_port
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.ipfs.id
+}
+
+resource "aws_security_group_rule" "ipfs_api_from_watcher_in" {
+  type                     = "ingress"
+  security_group_id        = aws_security_group.ipfs.id
+  description              = "IPFS API from watcher"
+  from_port                = var.ipfs_api_port
+  to_port                  = var.ipfs_api_port
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.watcher.id
+}
+
+resource "aws_security_group_rule" "ipfs_api_from_aggregator_in" {
+  type                     = "ingress"
+  security_group_id        = aws_security_group.ipfs.id
+  description              = "IPFS API from aggregator"
+  from_port                = var.ipfs_api_port
+  to_port                  = var.ipfs_api_port
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.aggregator.id
+}
+
+resource "aws_security_group_rule" "ipfs_ssh_in" {
+  type                     = "ingress"
+  security_group_id        = aws_security_group.ipfs.id
+  description              = "SSH from bastion"
+  from_port                = var.ssh_port
+  to_port                  = var.ssh_port
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.bastion.id
+}
+
+resource "aws_security_group_rule" "aggregator_fastapi_in" {
+  type                     = "ingress"
+  security_group_id        = aws_security_group.aggregator.id
+  description              = "FastAPI from NGINX"
+  from_port                = var.fastapi_port
+  to_port                  = var.fastapi_port
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.nginx.id
+}
+
+resource "aws_security_group_rule" "aggregator_ssh_in" {
+  type                     = "ingress"
+  security_group_id        = aws_security_group.aggregator.id
+  description              = "SSH from bastion"
+  from_port                = var.ssh_port
+  to_port                  = var.ssh_port
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.bastion.id
+}
+
+resource "aws_security_group_rule" "aggregator_ipfs_out" {
+  type                     = "egress"
+  security_group_id        = aws_security_group.aggregator.id
+  description              = "IPFS API to IPFS"
+  from_port                = var.ipfs_api_port
+  to_port                  = var.ipfs_api_port
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.ipfs.id
 }
