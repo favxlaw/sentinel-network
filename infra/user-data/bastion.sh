@@ -1,29 +1,16 @@
 #!/bin/bash
 set -euo pipefail
 
-# Bastion + NAT setup (Ubuntu 22.04)
+# Bastion host setup (Ubuntu 22.04)
 # - SSH hardening
-# - NAT iptables for private subnet egress
+# - SSM access
 # - CloudWatch agent
 
-ADMIN_USER="ubuntu"
-PRIVATE_CIDR="10.0.10.0/24"
-
 apt-get update -y
-apt-get install -y amazon-cloudwatch-agent iptables-persistent
+apt-get install -y amazon-cloudwatch-agent amazon-ssm-agent
 
-# Enable IP forwarding
-sysctl -w net.ipv4.ip_forward=1
-if ! grep -q "net.ipv4.ip_forward=1" /etc/sysctl.conf; then
-  echo "net.ipv4.ip_forward=1" >> /etc/sysctl.conf
-fi
-
-# NAT configuration
-iptables -t nat -A POSTROUTING -s "${PRIVATE_CIDR}" -o eth0 -j MASQUERADE
-iptables -A FORWARD -s "${PRIVATE_CIDR}" -o eth0 -j ACCEPT
-iptables -A FORWARD -d "${PRIVATE_CIDR}" -m state --state ESTABLISHED,RELATED -i eth0 -j ACCEPT
-
-netfilter-persistent save
+systemctl enable amazon-ssm-agent
+systemctl start amazon-ssm-agent
 
 # SSH hardening
 sed -i 's/^#*PasswordAuthentication .*/PasswordAuthentication no/' /etc/ssh/sshd_config

@@ -53,7 +53,13 @@ variable "availability_zone" {
 
 # Instance configuration
 variable "bastion_instance_type" {
-  description = "EC2 instance type for bastion + NAT"
+  description = "EC2 instance type for bastion host"
+  type        = string
+  default     = "t2.micro"
+}
+
+variable "nat_instance_type" {
+  description = "EC2 instance type for NAT instance"
   type        = string
   default     = "t2.micro"
 }

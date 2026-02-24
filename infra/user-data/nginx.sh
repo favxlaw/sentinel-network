@@ -3,7 +3,10 @@ set -euo pipefail
 
 # NGINX gateway setup (Ubuntu 22.04)
 apt-get update -y
-apt-get install -y git
+apt-get install -y git amazon-ssm-agent
+
+systemctl enable amazon-ssm-agent
+systemctl start amazon-ssm-agent
 
 REPO_URL="https://github.com/your-org/sentinel-network.git"
 APP_ROOT="/opt/sentinel"

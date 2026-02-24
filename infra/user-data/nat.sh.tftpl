@@ -1,0 +1,25 @@
+#!/bin/bash
+set -euo pipefail
+
+# NAT instance setup (Ubuntu 22.04)
+# - Packet forwarding + iptables NAT
+# - SSM access for emergency administration
+
+PRIVATE_CIDR="${private_cidr}"
+
+apt-get update -y
+apt-get install -y iptables-persistent amazon-ssm-agent
+
+systemctl enable amazon-ssm-agent
+systemctl start amazon-ssm-agent
+
+sysctl -w net.ipv4.ip_forward=1
+if ! grep -q "net.ipv4.ip_forward=1" /etc/sysctl.conf; then
+  echo "net.ipv4.ip_forward=1" >> /etc/sysctl.conf
+fi
+
+iptables -t nat -A POSTROUTING -s "${PRIVATE_CIDR}" -o eth0 -j MASQUERADE
+iptables -A FORWARD -s "${PRIVATE_CIDR}" -o eth0 -j ACCEPT
+iptables -A FORWARD -d "${PRIVATE_CIDR}" -m state --state ESTABLISHED,RELATED -i eth0 -j ACCEPT
+
+netfilter-persistent save
