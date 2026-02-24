@@ -1,15 +1,23 @@
 #!/bin/bash
-set -e
+set -euo pipefail
+
+# Wait for NAT routing to be available before proceeding
+for i in $(seq 1 10); do
+  apt-get update -y && break
+  echo "Network not ready, waiting 15s... (attempt $i/10)"
+  sleep 15
+done
 
 # Backend setup: Docker, Python, Git, then install backend
-apt-get update -y
-apt-get install -y docker.io docker-compose python3 python3-pip python3-venv git amazon-cloudwatch-agent amazon-ssm-agent
+apt-get install -y docker.io docker-compose python3 python3-pip python3-venv git amazon-cloudwatch-agent
 systemctl enable docker
 systemctl start docker
 systemctl enable amazon-cloudwatch-agent
 systemctl start amazon-cloudwatch-agent
-systemctl enable amazon-ssm-agent
-systemctl start amazon-ssm-agent
+
+# SSM agent is pre-installed via snap on Ubuntu 22.04 AWS AMI
+systemctl enable snap.amazon-ssm-agent.amazon-ssm-agent
+systemctl start snap.amazon-ssm-agent.amazon-ssm-agent
 
 # Create /data directory for SQLite and IPFS
 mkdir -p /data
@@ -29,7 +37,7 @@ if [ -n "$DATA_DEVICE" ]; then
   echo "$DATA_DEVICE /data ext4 defaults,nofail 0 2" >> /etc/fstab
 fi
 
-REPO_URL="https://github.com/your-org/sentinel-network.git"
+REPO_URL="https://github.com/favxlaw/sentinel-network.git"
 APP_ROOT="/opt/sentinel"
 APP_DIR="${APP_ROOT}/sentinel-network"
 

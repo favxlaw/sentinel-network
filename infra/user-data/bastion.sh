@@ -7,10 +7,16 @@ set -euo pipefail
 # - CloudWatch agent
 
 apt-get update -y
-apt-get install -y amazon-cloudwatch-agent amazon-ssm-agent
+apt-get install -y curl
 
-systemctl enable amazon-ssm-agent
-systemctl start amazon-ssm-agent
+# Install CloudWatch agent from AWS
+curl -sO https://s3.amazonaws.com/amazoncloudwatch-agent/ubuntu/amd64/latest/amazon-cloudwatch-agent.deb
+dpkg -i amazon-cloudwatch-agent.deb
+rm amazon-cloudwatch-agent.deb
+
+# SSM agent is pre-installed via snap on Ubuntu 22.04 AWS AMI
+systemctl enable snap.amazon-ssm-agent.amazon-ssm-agent
+systemctl start snap.amazon-ssm-agent.amazon-ssm-agent
 
 # SSH hardening
 sed -i 's/^#*PasswordAuthentication .*/PasswordAuthentication no/' /etc/ssh/sshd_config

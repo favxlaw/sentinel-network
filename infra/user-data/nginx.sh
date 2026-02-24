@@ -1,14 +1,14 @@
 #!/bin/bash
 set -euo pipefail
 
-# NGINX gateway setup (Ubuntu 22.04)
 apt-get update -y
-apt-get install -y git amazon-ssm-agent
+apt-get install -y git
 
-systemctl enable amazon-ssm-agent
-systemctl start amazon-ssm-agent
+# SSM agent is pre-installed via snap on Ubuntu 22.04 AWS AMI
+systemctl enable snap.amazon-ssm-agent.amazon-ssm-agent
+systemctl start snap.amazon-ssm-agent.amazon-ssm-agent
 
-REPO_URL="https://github.com/your-org/sentinel-network.git"
+REPO_URL="https://github.com/favxlaw/sentinel-network.git"
 APP_ROOT="/opt/sentinel"
 APP_DIR="${APP_ROOT}/sentinel-network"
 
@@ -17,7 +17,6 @@ if [ ! -d "${APP_DIR}" ]; then
   git clone "${REPO_URL}" "${APP_DIR}"
 fi
 
-# Run nginx installer from repo
 if [ -f "${APP_DIR}/nginx/install.sh" ]; then
   bash "${APP_DIR}/nginx/install.sh"
 fi
