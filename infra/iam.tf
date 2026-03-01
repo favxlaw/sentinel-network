@@ -73,7 +73,10 @@ resource "aws_iam_role_policy" "backend" {
           "s3:PutObject",
           "s3:PutObjectAcl"
         ]
-        Resource = "arn:aws:s3:::sentinel-events-${local.account_id}/*"
+        Resource = [
+          for tenant_id in var.tenant_ids :
+          "arn:aws:s3:::sentinel-events-${local.account_id}/${tenant_id}/*"
+        ]
         Condition = {
           StringEquals = {
             "s3:x-amz-server-side-encryption" = "AES256"

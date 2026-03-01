@@ -1,0 +1,15 @@
+version: "3.8"
+
+services:
+  ipfs:
+    image: ipfs/kubo:latest
+    container_name: sentinel-ipfs
+    environment:
+      - IPFS_PATH=/data/ipfs
+      - LIBP2P_FORCE_PNET=1
+    volumes:
+      - /data/ipfs:/data/ipfs
+      - /opt/sentinel/sentinel-network/ipfs/swarm.key:/data/ipfs/swarm.key:ro
+    ports:
+      - "127.0.0.1:5001:5001"
+    restart: unless-stopped
