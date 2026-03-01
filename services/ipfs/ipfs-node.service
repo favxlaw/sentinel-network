@@ -1,0 +1,18 @@
+[Unit]
+Description=Sentinel IPFS Node (Docker Compose)
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/opt/sentinel/sentinel-network/ipfs
+Environment="IPFS_PATH=/data/ipfs"
+Environment="LIBP2P_FORCE_PNET=1"
+RemainAfterExit=yes
+ExecStart=/usr/bin/docker compose -f /opt/sentinel/sentinel-network/ipfs/docker-compose.yml up -d
+ExecStop=/usr/bin/docker compose -f /opt/sentinel/sentinel-network/ipfs/docker-compose.yml down
+TimeoutStartSec=0
+
+[Install]
+WantedBy=multi-user.target

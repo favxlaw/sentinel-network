@@ -1,0 +1,17 @@
+[Unit]
+Description=Sentinel Watcher Service
+After=network.target blockchain-proxy.service
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/opt/sentinel/sentinel-network/watcher-service
+Environment="SERVICE_CONFIG_PATH=/opt/sentinel/sentinel-network/config/services.yaml"
+Environment="TENANT_CONFIG_PATH=/opt/sentinel/sentinel-network/config/tenants.yaml"
+Environment="PYTHONUNBUFFERED=1"
+ExecStart=/opt/sentinel/sentinel-network/watcher-service/venv/bin/python /opt/sentinel/sentinel-network/watcher-service/watcher.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

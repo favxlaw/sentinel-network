@@ -7,6 +7,33 @@ locals {
   region     = data.aws_region.current.name
 }
 
+resource "aws_iam_role" "ops" {
+  name = "SentinelOpsRole"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "ec2.amazonaws.com"
+        }
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "ops_ssm_core" {
+  role       = aws_iam_role.ops.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+}
+
+resource "aws_iam_instance_profile" "ops" {
+  name = "SentinelOpsRole"
+  role = aws_iam_role.ops.name
+}
+
 resource "aws_iam_role" "backend" {
   name = "SentinelBackendRole"
 
@@ -46,7 +73,10 @@ resource "aws_iam_role_policy" "backend" {
           "s3:PutObject",
           "s3:PutObjectAcl"
         ]
-        Resource = "arn:aws:s3:::sentinel-events-${local.account_id}/*"
+        Resource = [
+          for tenant_id in var.tenant_ids :
+          "arn:aws:s3:::sentinel-events-${local.account_id}/${tenant_id}/*"
+        ]
         Condition = {
           StringEquals = {
             "s3:x-amz-server-side-encryption" = "AES256"
@@ -79,6 +109,11 @@ resource "aws_iam_role_policy" "backend" {
 resource "aws_iam_instance_profile" "backend" {
   name = "SentinelBackendRole"
   role = aws_iam_role.backend.name
+}
+
+resource "aws_iam_role_policy_attachment" "backend_ssm_core" {
+  role       = aws_iam_role.backend.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }
 
 resource "aws_iam_role" "nginx" {
@@ -121,4 +156,9 @@ resource "aws_iam_role_policy" "nginx" {
 resource "aws_iam_instance_profile" "nginx" {
   name = "SentinelNginxRole"
   role = aws_iam_role.nginx.name
+}
+
+resource "aws_iam_role_policy_attachment" "nginx_ssm_core" {
+  role       = aws_iam_role.nginx.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }

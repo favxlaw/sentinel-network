@@ -10,6 +10,12 @@ variable "common_tags" {
   default     = {}
 }
 
+variable "tenant_ids" {
+  description = "Tenant identifiers used for scoping access"
+  type        = list(string)
+  default     = ["dao-alpha", "dao-beta", "dao-gamma"]
+}
+
 variable "aws_region" {
   description = "AWS region"
   type        = string
@@ -53,7 +59,13 @@ variable "availability_zone" {
 
 # Instance configuration
 variable "bastion_instance_type" {
-  description = "EC2 instance type for bastion + NAT"
+  description = "EC2 instance type for bastion host"
+  type        = string
+  default     = "t2.micro"
+}
+
+variable "nat_instance_type" {
+  description = "EC2 instance type for NAT instance"
   type        = string
   default     = "t2.micro"
 }
