@@ -87,7 +87,7 @@ python3 watcher-service/watcher.py &
 uvicorn aggregator.main:app --port 8006
 
 # Test API
-curl -H "X-Tenant-Key: alpha-secret-key-123" http://localhost:8006/api/v1/events
+curl -H "X-Tenant-Key: <tenant-api-key>" http://localhost:8006/api/v1/events
 ```
 
 ## Configuration
@@ -96,7 +96,7 @@ curl -H "X-Tenant-Key: alpha-secret-key-123" http://localhost:8006/api/v1/events
 ```yaml
 tenants:
   dao-alpha:
-    api_key: alpha-secret-key-123
+    api_key: <tenant-api-key>
     watch_addresses: [0x...]
     alert_threshold_eth: 10.0
 ```
@@ -107,3 +107,42 @@ tenants:
 - `SENTINEL_DB_PATH` - Database location
 - `LOG_LEVEL` - Logging verbosity
 
+<<<<<<< Updated upstream
+=======
+## Testing
+
+```bash
+# Health check (no auth required)
+curl http://localhost:8006/health
+
+# Query with tenant key
+curl -H "X-Tenant-Key: <tenant-api-key>" \
+  http://localhost:8006/api/v1/events
+
+# Test auth failure
+curl -H "X-Tenant-Key: invalid" \
+  http://localhost:8006/api/v1/events  # Returns 401
+```
+
+## Architecture
+
+```
+Ethereum → Alchemy RPC → Watcher → SQLite DB → Aggregator API → Tenant
+                           ↓
+                         IPFS (significant events)
+```
+
+## Git Workflow
+
+- `main` - Protected branch (production ready)
+- Feature branches: `feature/watcher-ipfs-integration`
+- Conventional commits: `feat:`, `fix:`, `docs:`
+
+## Next Steps
+
+- [ ] Deploy to AWS (VPC, EC2, RDS)
+- [ ] Redis for production caching
+- [ ] NGINX gateway with subdomain routing
+- [ ] CloudWatch monitoring & alarms
+- [ ] Multi-chain support
+>>>>>>> Stashed changes

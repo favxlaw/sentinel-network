@@ -1,0 +1,18 @@
+[Unit]
+Description=Sentinel Blockchain Proxy Service
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/opt/sentinel/sentinel-network/blockchain-proxy
+Environment="SERVICE_CONFIG_PATH=/opt/sentinel/sentinel-network/config/services.yaml"
+Environment="TENANT_CONFIG_PATH=/opt/sentinel/sentinel-network/config/tenants.yaml"
+EnvironmentFile=/etc/sentinel/sentinel.env
+Environment="PYTHONUNBUFFERED=1"
+ExecStart=/opt/sentinel/sentinel-network/blockchain-proxy/venv/bin/python /opt/sentinel/sentinel-network/blockchain-proxy/blockchain-proxy.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

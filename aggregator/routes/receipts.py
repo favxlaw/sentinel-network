@@ -25,6 +25,29 @@ router = APIRouter()
     "/api/v1/receipt/{tx_hash}",
     response_model=EventResponse,
     summary="Retrieve event receipt (CID) from database",
+<<<<<<< Updated upstream
+=======
+    description="""
+    Fetch a stored event receipt using its transaction hash.
+    
+    If the event has an IPFS CID, it's included in the response.
+    Only receipts for your tenant's events can be retrieved.
+    
+    ## Parameters
+    - **tx_hash**: Transaction hash (0x...)
+    
+    ## Response
+    Returns the event with IPFS CID if this was a significant event.
+    
+    The CID can then be used to retrieve the full receipt from IPFS if needed.
+    
+    ## Example
+    ```
+    curl -H "X-Tenant-Key: <tenant-api-key>" \\
+      http://api.sentinel.local/api/v1/receipt/0xabc123def456...
+    ```
+    """,
+>>>>>>> Stashed changes
     responses={
         200: {"description": "Receipt found and returned"},
         401: {"description": "Unauthorized - invalid API key", "model": ErrorResponse},

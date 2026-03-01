@@ -37,7 +37,7 @@ def get_current_tenant(
     x_tenant_key: str = Header(
         ...,  #parameter is REQUIRED
         description="Your API key for authentication",
-        example="alpha-secret-key-123"
+        example="<tenant-api-key>"
     )
 ) -> str:
     return get_tenant_from_key(x_tenant_key)
