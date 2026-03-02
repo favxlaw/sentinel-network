@@ -272,8 +272,6 @@ resource "aws_instance" "backend" {
   ]
   key_name = var.key_name
 
-  private_ip = "10.0.10.20"
-
   associate_public_ip_address = false
 
   iam_instance_profile = aws_iam_instance_profile.backend.name

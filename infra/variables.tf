@@ -10,12 +10,6 @@ variable "common_tags" {
   default     = {}
 }
 
-variable "tenant_ids" {
-  description = "Tenant identifiers used for scoping access"
-  type        = list(string)
-  default     = ["dao-alpha", "dao-beta", "dao-gamma"]
-}
-
 variable "aws_region" {
   description = "AWS region"
   type        = string

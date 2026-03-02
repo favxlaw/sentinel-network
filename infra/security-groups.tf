@@ -201,16 +201,6 @@ resource "aws_security_group_rule" "proxy_https_out" {
   cidr_blocks       = ["0.0.0.0/0"]
 }
 
-resource "aws_security_group_rule" "proxy_http_out" {
-  type              = "egress"
-  security_group_id = aws_security_group.proxy.id
-  description       = "HTTP to internet via NAT"
-  from_port         = var.http_port
-  to_port           = var.http_port
-  protocol          = "tcp"
-  cidr_blocks       = ["0.0.0.0/0"]
-}
-
 resource "aws_security_group_rule" "watcher_ssh_in" {
   type                     = "ingress"
   security_group_id        = aws_security_group.watcher.id
@@ -239,26 +229,6 @@ resource "aws_security_group_rule" "watcher_ipfs_out" {
   to_port                  = var.ipfs_api_port
   protocol                 = "tcp"
   source_security_group_id = aws_security_group.ipfs.id
-}
-
-resource "aws_security_group_rule" "watcher_http_out" {
-  type              = "egress"
-  security_group_id = aws_security_group.watcher.id
-  description       = "HTTP to internet via NAT"
-  from_port         = var.http_port
-  to_port           = var.http_port
-  protocol          = "tcp"
-  cidr_blocks       = ["0.0.0.0/0"]
-}
-
-resource "aws_security_group_rule" "watcher_https_out" {
-  type              = "egress"
-  security_group_id = aws_security_group.watcher.id
-  description       = "HTTPS to internet via NAT"
-  from_port         = var.https_port
-  to_port           = var.https_port
-  protocol          = "tcp"
-  cidr_blocks       = ["0.0.0.0/0"]
 }
 
 resource "aws_security_group_rule" "ipfs_api_from_watcher_in" {
@@ -291,26 +261,6 @@ resource "aws_security_group_rule" "ipfs_ssh_in" {
   source_security_group_id = aws_security_group.bastion.id
 }
 
-resource "aws_security_group_rule" "ipfs_http_out" {
-  type              = "egress"
-  security_group_id = aws_security_group.ipfs.id
-  description       = "HTTP to internet via NAT"
-  from_port         = var.http_port
-  to_port           = var.http_port
-  protocol          = "tcp"
-  cidr_blocks       = ["0.0.0.0/0"]
-}
-
-resource "aws_security_group_rule" "ipfs_https_out" {
-  type              = "egress"
-  security_group_id = aws_security_group.ipfs.id
-  description       = "HTTPS to internet via NAT"
-  from_port         = var.https_port
-  to_port           = var.https_port
-  protocol          = "tcp"
-  cidr_blocks       = ["0.0.0.0/0"]
-}
-
 resource "aws_security_group_rule" "aggregator_fastapi_in" {
   type                     = "ingress"
   security_group_id        = aws_security_group.aggregator.id
@@ -339,24 +289,4 @@ resource "aws_security_group_rule" "aggregator_ipfs_out" {
   to_port                  = var.ipfs_api_port
   protocol                 = "tcp"
   source_security_group_id = aws_security_group.ipfs.id
-}
-
-resource "aws_security_group_rule" "aggregator_http_out" {
-  type              = "egress"
-  security_group_id = aws_security_group.aggregator.id
-  description       = "HTTP to internet via NAT"
-  from_port         = var.http_port
-  to_port           = var.http_port
-  protocol          = "tcp"
-  cidr_blocks       = ["0.0.0.0/0"]
-}
-
-resource "aws_security_group_rule" "aggregator_https_out" {
-  type              = "egress"
-  security_group_id = aws_security_group.aggregator.id
-  description       = "HTTPS to internet via NAT"
-  from_port         = var.https_port
-  to_port           = var.https_port
-  protocol          = "tcp"
-  cidr_blocks       = ["0.0.0.0/0"]
 }

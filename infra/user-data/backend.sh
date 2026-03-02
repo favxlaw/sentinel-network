@@ -1,9 +1,6 @@
 #!/bin/bash
 set -euo pipefail
 
-# Force IPv4 for apt to avoid IPv6 connectivity issues
-echo 'Acquire::ForceIPv4 "true";' > /etc/apt/apt.conf.d/99force-ipv4
-
 # Wait for NAT routing to be available before proceeding
 for i in $(seq 1 10); do
   apt-get update -y && break
@@ -11,23 +8,10 @@ for i in $(seq 1 10); do
   sleep 15
 done
 
-# Install base packages
-apt-get install -y python3 python3-pip python3-venv git curl ca-certificates gnupg lsb-release
-
-# Install Docker via official Docker repo
-install -m 0755 -d /etc/apt/keyrings
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-chmod a+r /etc/apt/keyrings/docker.gpg
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" > /etc/apt/sources.list.d/docker.list
-apt-get update -y
-apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+# Backend setup: Docker, Python, Git, then install backend
+apt-get install -y docker.io docker-compose python3 python3-pip python3-venv git amazon-cloudwatch-agent
 systemctl enable docker
 systemctl start docker
-
-# Install CloudWatch agent from AWS
-curl -sO https://s3.amazonaws.com/amazoncloudwatch-agent/ubuntu/amd64/latest/amazon-cloudwatch-agent.deb
-dpkg -i amazon-cloudwatch-agent.deb
-rm amazon-cloudwatch-agent.deb
 systemctl enable amazon-cloudwatch-agent
 systemctl start amazon-cloudwatch-agent
 
@@ -64,14 +48,4 @@ fi
 
 if [ -f "$APP_DIR/scripts/install-backend.sh" ]; then
   bash "$APP_DIR/scripts/install-backend.sh"
-fi
-
-# Configure CloudWatch agent (if config is present in repo)
-if [ -f "$APP_DIR/config/cloudwatch-agent.json" ]; then
-  cp "$APP_DIR/config/cloudwatch-agent.json" /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
-  /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
-    -a fetch-config \
-    -m ec2 \
-    -s \
-    -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
 fi
