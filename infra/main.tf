@@ -121,64 +121,17 @@ resource "aws_route_table_association" "private" {
   route_table_id = aws_route_table.private.id
 }
 
-# NAT instance (public)
-resource "aws_instance" "nat" {
-  ami                    = data.aws_ami.ubuntu_2204.id
-  instance_type          = var.nat_instance_type
-  subnet_id              = aws_subnet.public.id
-  vpc_security_group_ids = [aws_security_group.nat.id]
-  private_ip             = "10.0.1.11"
-  iam_instance_profile   = aws_iam_instance_profile.ops.name
-
-  associate_public_ip_address = true
-  source_dest_check           = false
-
-  user_data = templatefile("${path.module}/user-data/nat.sh.tftpl", {
-    private_cidr = var.private_subnet_cidr
-  })
-  user_data_replace_on_change = true
-
-  tags = merge(
-    var.common_tags,
-    {
-      Name = "${var.project_name}-nat"
-      Role = "nat"
-    }
-  )
-
-  depends_on = [aws_internet_gateway.sentinel]
-}
-
-resource "aws_eip" "nat" {
-  domain = "vpc"
-
-  tags = merge(
-    var.common_tags,
-    {
-      Name = "${var.project_name}-nat-eip"
-      Role = "nat"
-    }
-  )
-
-  depends_on = [aws_internet_gateway.sentinel]
-}
-
-resource "aws_eip_association" "nat" {
-  instance_id   = aws_instance.nat.id
-  allocation_id = aws_eip.nat.id
-}
-
-# Bastion host (public, break-glass SSH)
+# Bastion + NAT instance (public)
 resource "aws_instance" "bastion" {
   ami                    = data.aws_ami.ubuntu_2204.id
   instance_type          = var.bastion_instance_type
   subnet_id              = aws_subnet.public.id
-  vpc_security_group_ids = [aws_security_group.bastion.id]
+  vpc_security_group_ids = [aws_security_group.bastion.id, aws_security_group.nat.id]
   key_name               = var.key_name
   private_ip             = "10.0.1.10"
-  iam_instance_profile   = aws_iam_instance_profile.ops.name
 
   associate_public_ip_address = true
+  source_dest_check           = false
 
   user_data                   = file("${path.module}/user-data/bastion.sh")
   user_data_replace_on_change = true
@@ -186,8 +139,8 @@ resource "aws_instance" "bastion" {
   tags = merge(
     var.common_tags,
     {
-      Name = "${var.project_name}-bastion"
-      Role = "bastion"
+      Name = "${var.project_name}-bastion-nat"
+      Role = "bastion-nat"
     }
   )
 
@@ -201,7 +154,7 @@ resource "aws_eip" "bastion" {
     var.common_tags,
     {
       Name = "${var.project_name}-bastion-eip"
-      Role = "bastion"
+      Role = "bastion-nat"
     }
   )
 
@@ -261,16 +214,16 @@ resource "aws_eip_association" "nginx" {
 
 # Backend instance (private)
 resource "aws_instance" "backend" {
-  ami           = data.aws_ami.ubuntu_2204.id
-  instance_type = var.backend_instance_type
-  subnet_id     = aws_subnet.private.id
+  ami                    = data.aws_ami.ubuntu_2204.id
+  instance_type          = var.backend_instance_type
+  subnet_id              = aws_subnet.private.id
   vpc_security_group_ids = [
     aws_security_group.proxy.id,
     aws_security_group.watcher.id,
     aws_security_group.ipfs.id,
     aws_security_group.aggregator.id
   ]
-  key_name = var.key_name
+  key_name               = var.key_name
 
   associate_public_ip_address = false
 
@@ -303,9 +256,9 @@ resource "aws_instance" "backend" {
   depends_on = [aws_route.private_nat_instance]
 }
 
-# Private route to NAT instance
+# Private route to NAT instance (bastion)
 resource "aws_route" "private_nat_instance" {
   route_table_id         = aws_route_table.private.id
   destination_cidr_block = "0.0.0.0/0"
-  network_interface_id   = aws_instance.nat.primary_network_interface_id
+  network_interface_id   = aws_instance.bastion.primary_network_interface_id
 }

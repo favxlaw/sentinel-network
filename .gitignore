@@ -35,6 +35,3 @@ watcher-service/config/tenants.yaml
 
 # Logs / runtime
 **/logs/
-
-# IPFS runtime/state data (do not version)
-ipfs/data/

@@ -3,13 +3,11 @@ set -e
 
 # Backend setup: Docker, Python, Git, then install backend
 apt-get update -y
-apt-get install -y docker.io docker-compose python3 python3-pip python3-venv git amazon-cloudwatch-agent amazon-ssm-agent
+apt-get install -y docker.io docker-compose python3 python3-pip python3-venv git amazon-cloudwatch-agent
 systemctl enable docker
 systemctl start docker
 systemctl enable amazon-cloudwatch-agent
 systemctl start amazon-cloudwatch-agent
-systemctl enable amazon-ssm-agent
-systemctl start amazon-ssm-agent
 
 # Create /data directory for SQLite and IPFS
 mkdir -p /data

@@ -7,33 +7,6 @@ locals {
   region     = data.aws_region.current.name
 }
 
-resource "aws_iam_role" "ops" {
-  name = "SentinelOpsRole"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = "sts:AssumeRole"
-        Effect = "Allow"
-        Principal = {
-          Service = "ec2.amazonaws.com"
-        }
-      }
-    ]
-  })
-}
-
-resource "aws_iam_role_policy_attachment" "ops_ssm_core" {
-  role       = aws_iam_role.ops.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
-}
-
-resource "aws_iam_instance_profile" "ops" {
-  name = "SentinelOpsRole"
-  role = aws_iam_role.ops.name
-}
-
 resource "aws_iam_role" "backend" {
   name = "SentinelBackendRole"
 
@@ -108,11 +81,6 @@ resource "aws_iam_instance_profile" "backend" {
   role = aws_iam_role.backend.name
 }
 
-resource "aws_iam_role_policy_attachment" "backend_ssm_core" {
-  role       = aws_iam_role.backend.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
-}
-
 resource "aws_iam_role" "nginx" {
   name = "SentinelNginxRole"
 
@@ -153,9 +121,4 @@ resource "aws_iam_role_policy" "nginx" {
 resource "aws_iam_instance_profile" "nginx" {
   name = "SentinelNginxRole"
   role = aws_iam_role.nginx.name
-}
-
-resource "aws_iam_role_policy_attachment" "nginx_ssm_core" {
-  role       = aws_iam_role.nginx.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }
