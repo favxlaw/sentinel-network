@@ -161,16 +161,6 @@ resource "aws_security_group_rule" "nginx_fastapi_out" {
   source_security_group_id = aws_security_group.aggregator.id
 }
 
-resource "aws_security_group_rule" "nginx_https_out" {
-  type              = "egress"
-  security_group_id = aws_security_group.nginx.id
-  description       = "HTTPS to internet"
-  from_port         = var.https_port
-  to_port           = var.https_port
-  protocol          = "tcp"
-  cidr_blocks       = ["0.0.0.0/0"]
-}
-
 resource "aws_security_group_rule" "proxy_rpc_in" {
   type                     = "ingress"
   security_group_id        = aws_security_group.proxy.id
