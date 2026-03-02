@@ -10,37 +10,9 @@ from logger import TenantLogger
 from ipfs_client import IPFSClient
 import time
 import os
-import yaml
-import re
-import json
-import threading
-from http.server import BaseHTTPRequestHandler, HTTPServer
 from dotenv import load_dotenv
 
 load_dotenv()
-
-
-def _interpolate_env(value):
-    if isinstance(value, str):
-        def replacer(match):
-            var_name = match.group(1)
-            return os.getenv(var_name, match.group(0))
-        return re.sub(r"\$\{([^}]+)\}", replacer, value)
-    if isinstance(value, dict):
-        return {k: _interpolate_env(v) for k, v in value.items()}
-    if isinstance(value, list):
-        return [_interpolate_env(v) for v in value]
-    return value
-
-
-def load_services_config():
-    default_path = os.path.join(os.path.dirname(__file__), "../config/services.yaml")
-    config_path = os.getenv("SERVICE_CONFIG_PATH", default_path)
-    if not os.path.exists(config_path):
-        return {}
-    with open(config_path, "r") as f:
-        data = yaml.safe_load(f) or {}
-    return _interpolate_env(data)
 
 
 class WatcherService:
@@ -60,39 +32,14 @@ class WatcherService:
         print("\n" + "="*60)
         print("SENTINEL WATCHER SERVICE - INITIALIZING")
         print("="*60 + "\n")
-
-        services_cfg = load_services_config()
-        watcher_cfg = services_cfg.get("watcher", {})
-        paths_cfg = services_cfg.get("paths", {})
-
-        tenant_config_path = (
-            os.getenv("TENANT_CONFIG_PATH")
-            or watcher_cfg.get("tenant_config_path")
-            or paths_cfg.get("tenant_config")
-        )
-
-        db_path = (
-            os.getenv("SENTINEL_DB_PATH")
-            or watcher_cfg.get("db_path")
-            or paths_cfg.get("watcher_db")
-        )
-
-        ipfs_api_url = (
-            os.getenv("IPFS_API_URL")
-            or watcher_cfg.get("ipfs_api_url")
-        )
-
-        log_dir = os.getenv("WATCHER_LOG_DIR", watcher_cfg.get("log_dir", "logs"))
-        self.health_host = os.getenv("WATCHER_HEALTH_HOST", watcher_cfg.get("health_host", "0.0.0.0"))
-        self.health_port = int(os.getenv("WATCHER_HEALTH_PORT", str(watcher_cfg.get("health_port", 9001))))
-
+        
         # Load configuration
-        self.config = ConfigLoader(config_path=tenant_config_path)
+        self.config = ConfigLoader()
         self.tenants = self.config.load()
         self.config.validate()
         
         # Initialize database
-        self.db = DatabaseManager(db_path=db_path)
+        self.db = DatabaseManager()
         
         # Create tables for all tenants
         for tenant in self.tenants:
@@ -102,58 +49,17 @@ class WatcherService:
         self.blockchain = BlockchainConnector()
         
         # Initialize logging
-        self.logger = TenantLogger(log_dir=log_dir)
+        self.logger = TenantLogger()
         
         # Initialize IPFS (optional - gracefully handles if unavailable)
-        self.ipfs = IPFSClient(api_url=ipfs_api_url)
+        self.ipfs = IPFSClient()
         
         # Polling interval (seconds)
-        self.poll_interval = int(
-            os.getenv("POLL_INTERVAL", str(watcher_cfg.get("poll_interval_seconds", 12)))
-        )
-
-        # Start health check server
-        self._start_health_server()
+        self.poll_interval = int(os.getenv('POLL_INTERVAL', 12))
         
         print("\n" + "="*60)
         print("INITIALIZATION COMPLETE - READY TO MONITOR")
         print("="*60 + "\n")
-
-    def _start_health_server(self):
-        service = self
-
-        class HealthHandler(BaseHTTPRequestHandler):
-            def do_GET(self):
-                if self.path != "/health":
-                    self.send_response(404)
-                    self.end_headers()
-                    return
-
-                payload = {
-                    "status": "healthy",
-                    "service": "watcher",
-                    "tenants_loaded": len(service.tenants),
-                    "last_processed_block": service.db.get_last_processed_block(),
-                    "ipfs_enabled": service.ipfs.enabled
-                }
-
-                body = json.dumps(payload).encode("utf-8")
-                self.send_response(200)
-                self.send_header("Content-Type", "application/json")
-                self.send_header("Content-Length", str(len(body)))
-                self.end_headers()
-                self.wfile.write(body)
-
-            def log_message(self, format, *args):
-                # Suppress default HTTP server logging
-                return
-
-        def run_server():
-            httpd = HTTPServer((self.health_host, self.health_port), HealthHandler)
-            httpd.serve_forever()
-
-        thread = threading.Thread(target=run_server, daemon=True)
-        thread.start()
     
     def process_block(self, block_number: int):
         """
