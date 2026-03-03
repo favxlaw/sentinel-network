@@ -1,0 +1,21 @@
+[Unit]
+Description=Sentinel Aggregator API
+After=network.target ipfs-node.service
+Wants=network.target
+Requires=ipfs-node.service
+
+[Service]
+Type=simple
+User=sentinel
+Group=sentinel
+WorkingDirectory=/opt/sentinel/sentinel-network/aggregator
+EnvironmentFile=/etc/sentinel/aggregator.env
+ExecStart=/opt/sentinel/venv/bin/python main.py
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=aggregator
+
+[Install]
+WantedBy=multi-user.target

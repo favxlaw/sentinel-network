@@ -1,0 +1,19 @@
+[Unit]
+Description=Sentinel IPFS Node
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=sentinel
+Group=sentinel
+Environment=IPFS_PATH=/data/ipfs
+ExecStart=/usr/local/bin/ipfs daemon --migrate=true
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ipfs-node
+
+[Install]
+WantedBy=multi-user.target

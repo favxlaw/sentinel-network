@@ -1,0 +1,20 @@
+[Unit]
+Description=Sentinel Blockchain Proxy
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=sentinel
+Group=sentinel
+WorkingDirectory=/opt/sentinel/sentinel-network/blockchain-proxy
+EnvironmentFile=/etc/sentinel/blockchain-proxy.env
+ExecStart=/opt/sentinel/venv/bin/python blockchain-proxy.py
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=blockchain-proxy
+
+[Install]
+WantedBy=multi-user.target

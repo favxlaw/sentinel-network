@@ -1,0 +1,27 @@
+#!/bin/bash
+set -euo pipefail
+
+PRIVATE_CIDR="${private_cidr}"
+
+# Detect primary network interface dynamically
+IFACE=$(ip route get 8.8.8.8 | awk '{print $5; exit}')
+
+apt-get update -y
+
+echo "iptables-persistent iptables-persistent/autosave_v4 boolean false" | debconf-set-selections
+echo "iptables-persistent iptables-persistent/autosave_v6 boolean false" | debconf-set-selections
+DEBIAN_FRONTEND=noninteractive apt-get install -y iptables-persistent
+
+sysctl -w net.ipv4.ip_forward=1
+if ! grep -q "net.ipv4.ip_forward=1" /etc/sysctl.conf; then
+  echo "net.ipv4.ip_forward=1" >> /etc/sysctl.conf
+fi
+
+iptables -t nat -A POSTROUTING -s "$${PRIVATE_CIDR}" -o "$IFACE" -j MASQUERADE
+iptables -A FORWARD -s "$${PRIVATE_CIDR}" -o "$IFACE" -j ACCEPT
+iptables -A FORWARD -d "$${PRIVATE_CIDR}" -m state --state ESTABLISHED,RELATED -i "$IFACE" -j ACCEPT
+
+netfilter-persistent save
+
+systemctl enable snap.amazon-ssm-agent.amazon-ssm-agent
+systemctl start snap.amazon-ssm-agent.amazon-ssm-agent

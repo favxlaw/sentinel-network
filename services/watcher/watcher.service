@@ -1,0 +1,21 @@
+[Unit]
+Description=Sentinel Watcher Service
+After=network.target ipfs-node.service blockchain-proxy.service
+Wants=network.target
+Requires=ipfs-node.service blockchain-proxy.service
+
+[Service]
+Type=simple
+User=sentinel
+Group=sentinel
+WorkingDirectory=/opt/sentinel/sentinel-network/watcher-service
+EnvironmentFile=/etc/sentinel/watcher.env
+ExecStart=/opt/sentinel/venv/bin/python watcher.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=watcher
+
+[Install]
+WantedBy=multi-user.target

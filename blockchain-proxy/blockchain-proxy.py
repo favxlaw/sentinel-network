@@ -515,7 +515,7 @@ async def web3_info():
 
 
 # STARTUP
-@app.lifespan("startup")
+@app.on_event("startup")
 async def startup_event():
     """Verify Web3 and cache connections on startup"""
     print(f"=== Blockchain Proxy Service ===")
@@ -548,7 +548,8 @@ async def startup_event():
     print(f"================================")
 
 
-# if __name__ == '__main__':
-#     import uvicorn
-#     port = int(os.getenv('PORT', '8000'))
-#     uvicorn.run(app, host='0.0.0.0', port=port)
+if __name__ == "__main__":
+    import uvicorn
+
+    port = int(os.getenv("PORT", "8545"))
+    uvicorn.run(app, host="0.0.0.0", port=port)
