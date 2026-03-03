@@ -21,13 +21,24 @@ REPO_URL="https://github.com/favxlaw/sentinel-network.git"
 APP_ROOT="/opt/sentinel"
 APP_DIR="${APP_ROOT}/sentinel-network"
 
+BACKEND_PRIVATE_IP="${backend_private_ip}"
+FASTAPI_PORT="${fastapi_port}"
+TENANT_IDS_JSON='${tenant_ids_json}'
+TENANT_RATE_LIMITS_JSON='${tenant_rate_limits_json}'
+BASE_DOMAIN="${base_domain}"
+
 mkdir -p "${APP_ROOT}"
 if [ ! -d "${APP_DIR}" ]; then
   git clone "${REPO_URL}" "${APP_DIR}"
 fi
 
 if [ -f "${APP_DIR}/nginx/install.sh" ]; then
-  bash "${APP_DIR}/nginx/install.sh"
+  bash "${APP_DIR}/nginx/install.sh" \
+    "${BACKEND_PRIVATE_IP}" \
+    "${FASTAPI_PORT}" \
+    "${TENANT_IDS_JSON}" \
+    "${TENANT_RATE_LIMITS_JSON}" \
+    "${BASE_DOMAIN}"
 fi
 
 # CloudWatch agent config for NGINX logs
