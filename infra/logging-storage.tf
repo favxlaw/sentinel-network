@@ -1,42 +1,79 @@
-resource "aws_cloudwatch_log_group" "vpc_flow" {
-  name              = "/sentinel/vpc-flow"
+############################################
+# CloudWatch Log Groups
+############################################
+
+# Required by spec: /sentinel/tenant/{id}/events
+resource "aws_cloudwatch_log_group" "tenant_events" {
+  for_each          = toset(var.tenant_ids)
+  name              = "/sentinel/tenant/${each.key}/events"
   retention_in_days = 30
 
-  tags = merge(
-    var.common_tags,
-    {
-      Name = "${var.project_name}-vpc-flow-logs"
-    }
-  )
+  tags = merge(var.common_tags, {
+    Name = "${var.project_name}-tenant-${each.key}-events"
+  })
 }
 
-resource "aws_cloudwatch_log_group" "system" {
-  name              = "/sentinel/system"
-  retention_in_days = 30
-}
-
+# Required by spec: /sentinel/system/nginx
 resource "aws_cloudwatch_log_group" "nginx" {
   name              = "/sentinel/system/nginx"
   retention_in_days = 30
+
+  tags = merge(var.common_tags, {
+    Name = "${var.project_name}-nginx-logs"
+  })
 }
 
 resource "aws_cloudwatch_log_group" "watcher" {
   name              = "/sentinel/watcher"
   retention_in_days = 30
+
+  tags = merge(var.common_tags, {
+    Name = "${var.project_name}-watcher-logs"
+  })
 }
 
 resource "aws_cloudwatch_log_group" "proxy" {
   name              = "/sentinel/blockchain-proxy"
   retention_in_days = 30
+
+  tags = merge(var.common_tags, {
+    Name = "${var.project_name}-proxy-logs"
+  })
+}
+
+resource "aws_cloudwatch_log_group" "system" {
+  name              = "/sentinel/system"
+  retention_in_days = 30
+
+  tags = merge(var.common_tags, {
+    Name = "${var.project_name}-system-logs"
+  })
+}
+
+resource "aws_cloudwatch_log_group" "vpc_flow" {
+  name              = "/sentinel/vpc-flow"
+  retention_in_days = 30
+
+  tags = merge(var.common_tags, {
+    Name = "${var.project_name}-vpc-flow-logs"
+  })
 }
 
 resource "aws_cloudwatch_log_group" "cloud_init" {
   name              = "/sentinel/cloud-init"
   retention_in_days = 30
+
+  tags = merge(var.common_tags, {
+    Name = "${var.project_name}-cloud-init-logs"
+  })
 }
 
+############################################
+# VPC Flow Logs
+############################################
+
 resource "aws_iam_role" "vpc_flow_logs" {
-  name = "SentinelVpcFlowLogsRole"
+  name = "${var.project_name}-vpc-flow-logs-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -50,10 +87,14 @@ resource "aws_iam_role" "vpc_flow_logs" {
       }
     ]
   })
+
+  tags = merge(var.common_tags, {
+    Name = "${var.project_name}-vpc-flow-logs-role"
+  })
 }
 
 resource "aws_iam_role_policy" "vpc_flow_logs" {
-  name = "SentinelVpcFlowLogsPolicy"
+  name = "${var.project_name}-vpc-flow-logs-policy"
   role = aws_iam_role.vpc_flow_logs.id
 
   policy = jsonencode({
@@ -84,30 +125,31 @@ resource "aws_flow_log" "vpc" {
   log_group_name       = aws_cloudwatch_log_group.vpc_flow.name
   iam_role_arn         = aws_iam_role.vpc_flow_logs.arn
 
-  tags = merge(
-    var.common_tags,
-    {
-      Name = "${var.project_name}-vpc-flow-logs"
-    }
-  )
+  tags = merge(var.common_tags, {
+    Name = "${var.project_name}-vpc-flow-logs"
+  })
 }
 
+############################################
+# Alarm: Watcher silent > 10 minutes
+############################################
+
 resource "aws_cloudwatch_log_metric_filter" "watcher_processed_block" {
-  name           = "sentinel-watcher-processed-block"
+  name           = "${var.project_name}-watcher-processed-block"
   log_group_name = aws_cloudwatch_log_group.watcher.name
   pattern        = "Processed block"
 
   metric_transformation {
     name      = "WatcherProcessedBlock"
-    namespace = "Sentinel/Monitoring"
+    namespace = var.cloudwatch_namespace
     value     = "1"
   }
 }
 
 resource "aws_cloudwatch_metric_alarm" "watcher_silent" {
-  alarm_name          = "sentinel-watcher-silent-10min"
+  alarm_name          = "${var.project_name}-watcher-silent-10min"
   alarm_description   = "Watcher has not processed any blocks in the last 10 minutes"
-  namespace           = "Sentinel/Monitoring"
+  namespace           = var.cloudwatch_namespace
   metric_name         = "WatcherProcessedBlock"
   statistic           = "Sum"
   period              = 600
@@ -115,49 +157,68 @@ resource "aws_cloudwatch_metric_alarm" "watcher_silent" {
   threshold           = 1
   comparison_operator = "LessThanThreshold"
   treat_missing_data  = "breaching"
+
+  tags = merge(var.common_tags, {
+    Name = "${var.project_name}-watcher-silent-alarm"
+  })
 }
 
+############################################
+# Alarm: NGINX rate limit > 80% per tenant
+############################################
+
 resource "aws_cloudwatch_log_metric_filter" "nginx_rate_limit" {
-  name           = "sentinel-nginx-429"
+  name           = "${var.project_name}-nginx-429"
   log_group_name = aws_cloudwatch_log_group.nginx.name
   pattern        = "\" 429 \""
 
   metric_transformation {
     name      = "NginxRateLimited"
-    namespace = "Sentinel/Monitoring"
+    namespace = var.cloudwatch_namespace
     value     = "1"
   }
 }
 
 resource "aws_cloudwatch_metric_alarm" "nginx_rate_limit" {
-  alarm_name          = "sentinel-nginx-rate-limit"
-  alarm_description   = "NGINX 429 rate limit responses detected"
-  namespace           = "Sentinel/Monitoring"
+  for_each = var.tenant_rate_limits
+
+  alarm_name          = "${var.project_name}-nginx-rate-limit-${each.key}"
+  alarm_description   = "NGINX rate limit for ${each.key} exceeded 80% (${each.value} req/min)"
+  namespace           = var.cloudwatch_namespace
   metric_name         = "NginxRateLimited"
   statistic           = "Sum"
-  period              = 300
+  period              = 60
   evaluation_periods  = 1
-  threshold           = 20
+  threshold           = each.value
   comparison_operator = "GreaterThanOrEqualToThreshold"
   treat_missing_data  = "notBreaching"
+
+  tags = merge(var.common_tags, {
+    Name   = "${var.project_name}-nginx-rate-limit-${each.key}"
+    Tenant = each.key
+  })
 }
 
+############################################
+# Alarm: IPFS unhealthy
+############################################
+
 resource "aws_cloudwatch_log_metric_filter" "ipfs_unhealthy" {
-  name           = "sentinel-ipfs-unhealthy"
+  name           = "${var.project_name}-ipfs-unhealthy"
   log_group_name = aws_cloudwatch_log_group.system.name
   pattern        = "ipfs-node.service Failed"
 
   metric_transformation {
     name      = "IpfsUnhealthy"
-    namespace = "Sentinel/Monitoring"
+    namespace = var.cloudwatch_namespace
     value     = "1"
   }
 }
 
 resource "aws_cloudwatch_metric_alarm" "ipfs_unhealthy" {
-  alarm_name          = "sentinel-ipfs-unhealthy"
+  alarm_name          = "${var.project_name}-ipfs-unhealthy"
   alarm_description   = "IPFS systemd service failure detected"
-  namespace           = "Sentinel/Monitoring"
+  namespace           = var.cloudwatch_namespace
   metric_name         = "IpfsUnhealthy"
   statistic           = "Sum"
   period              = 300
@@ -165,18 +226,23 @@ resource "aws_cloudwatch_metric_alarm" "ipfs_unhealthy" {
   threshold           = 1
   comparison_operator = "GreaterThanOrEqualToThreshold"
   treat_missing_data  = "notBreaching"
+
+  tags = merge(var.common_tags, {
+    Name = "${var.project_name}-ipfs-unhealthy-alarm"
+  })
 }
 
+############################################
+# S3 Bucket for Events
+############################################
+
 resource "aws_s3_bucket" "events" {
-  bucket        = "sentinel-events-${data.aws_caller_identity.current.account_id}"
+  bucket        = "${var.project_name}-events-${data.aws_caller_identity.current.account_id}"
   force_destroy = false
 
-  tags = merge(
-    var.common_tags,
-    {
-      Name = "${var.project_name}-events"
-    }
-  )
+  tags = merge(var.common_tags, {
+    Name = "${var.project_name}-events"
+  })
 }
 
 resource "aws_s3_bucket_public_access_block" "events" {
@@ -213,6 +279,10 @@ resource "aws_s3_bucket_lifecycle_configuration" "events" {
     id     = "glacier-after-30-days"
     status = "Enabled"
 
+    filter {
+      prefix = ""
+    }
+
     transition {
       days          = 30
       storage_class = "GLACIER"
@@ -225,34 +295,50 @@ resource "aws_s3_bucket_policy" "events" {
 
   policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [
-      {
-        Sid       = "DenyNonSSLRequests"
-        Effect    = "Deny"
-        Principal = "*"
-        Action    = "s3:*"
-        Resource = [
-          aws_s3_bucket.events.arn,
-          "${aws_s3_bucket.events.arn}/*"
-        ]
-        Condition = {
-          Bool = {
-            "aws:SecureTransport" = "false"
+    Statement = concat(
+      [
+        {
+          Sid       = "DenyNonSSLRequests"
+          Effect    = "Deny"
+          Principal = "*"
+          Action    = "s3:*"
+          Resource = [
+            aws_s3_bucket.events.arn,
+            "${aws_s3_bucket.events.arn}/*"
+          ]
+          Condition = {
+            Bool = {
+              "aws:SecureTransport" = "false"
+            }
+          }
+        },
+        {
+          Sid       = "DenyUnencryptedObjectUploads"
+          Effect    = "Deny"
+          Principal = "*"
+          Action    = "s3:PutObject"
+          Resource  = "${aws_s3_bucket.events.arn}/*"
+          Condition = {
+            StringNotEquals = {
+              "s3:x-amz-server-side-encryption" = "AES256"
+            }
           }
         }
-      },
-      {
-        Sid       = "DenyUnencryptedObjectUploads"
-        Effect    = "Deny"
-        Principal = "*"
-        Action    = "s3:PutObject"
-        Resource  = "${aws_s3_bucket.events.arn}/*"
-        Condition = {
-          StringNotEquals = {
-            "s3:x-amz-server-side-encryption" = "AES256"
+      ],
+      [
+        for tenant_id in var.tenant_ids : {
+          Sid    = "TenantScopedAccess${replace(tenant_id, "-", "")}"
+          Effect = "Allow"
+          Principal = {
+            AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${aws_iam_role.backend.name}"
           }
+          Action = [
+            "s3:PutObject",
+            "s3:GetObject"
+          ]
+          Resource = "${aws_s3_bucket.events.arn}/${tenant_id}/*"
         }
-      }
-    ]
+      ]
+    )
   })
 }

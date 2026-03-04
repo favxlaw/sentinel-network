@@ -1,8 +1,8 @@
 import os
+from dotenv import load_dotenv
 import json
 import logging
 import hashlib
-import re
 from datetime import datetime, timedelta
 from typing import Dict, Any, Optional, List
 from abc import ABC, abstractmethod
@@ -11,77 +11,25 @@ from pydantic import BaseModel
 from web3 import Web3
 from web3.providers import HTTPProvider
 from pydantic import Field
-import yaml
-from dotenv import load_dotenv
 
 # FastAPI app
 app = FastAPI(title="Blockchain Proxy Service")
 
 load_dotenv()
 
-
-def _interpolate_env(value):
-    if isinstance(value, str):
-        def replacer(match):
-            var_name = match.group(1)
-            return os.getenv(var_name, match.group(0))
-        return re.sub(r"\$\{([^}]+)\}", replacer, value)
-    if isinstance(value, dict):
-        return {k: _interpolate_env(v) for k, v in value.items()}
-    if isinstance(value, list):
-        return [_interpolate_env(v) for v in value]
-    return value
-
-
-def load_services_config() -> Dict[str, Any]:
-    """
-    Load shared services.yaml config, with ${ENV_VAR} interpolation.
-    """
-    default_path = os.path.join(os.path.dirname(__file__), "../config/services.yaml")
-    config_path = os.getenv("SERVICE_CONFIG_PATH", default_path)
-
-    if not os.path.exists(config_path):
-        return {}
-
-    with open(config_path, "r") as f:
-        data = yaml.safe_load(f) or {}
-    return _interpolate_env(data)
-
-
-_services_cfg = load_services_config()
-_bp_cfg = _services_cfg.get("blockchain_proxy", {})
-_bp_upstream = _bp_cfg.get("upstream_rpc", {})
-_bp_cache = _bp_cfg.get("cache", {})
-_bp_logging = _bp_cfg.get("logging", {})
-_bp_server = _bp_cfg.get("server", {})
-
-RPC_PROVIDER = os.getenv("RPC_PROVIDER", _bp_upstream.get("provider", "alchemy"))
-ALCHEMY_API_KEY = os.getenv("ALCHEMY_API_KEY", _bp_upstream.get("alchemy_api_key", ""))
-INFURA_API_KEY = os.getenv("INFURA_API_KEY", _bp_upstream.get("infura_api_key", ""))
-UPSTREAM_RPC_URL = os.getenv("UPSTREAM_RPC_URL", _bp_upstream.get("url", ""))
-
-CACHE_TTL_SECONDS = int(os.getenv("CACHE_TTL_SECONDS", str(_bp_cache.get("ttl_seconds", 300))))
-CACHE_BACKEND = os.getenv("CACHE_BACKEND", _bp_cache.get("backend", "memory"))
-REDIS_URL = os.getenv("REDIS_URL", _bp_cache.get("redis_url", ""))
-
-LOG_DIR = os.getenv("LOG_DIR", _bp_logging.get("dir", "./logs"))
-SERVER_HOST = os.getenv("BLOCKCHAIN_PROXY_HOST", str(_bp_server.get("host", "0.0.0.0")))
-SERVER_PORT = int(os.getenv("BLOCKCHAIN_PROXY_PORT", str(_bp_server.get("port", 8545))))
+RPC_PROVIDER = os.getenv('RPC_PROVIDER', 'alchemy')
+ALCHEMY_API_KEY = os.getenv('ALCHEMY_API_KEY', '')
+INFURA_API_KEY = os.getenv('INFURA_API_KEY', '')
+CACHE_TTL_SECONDS = int(os.getenv('CACHE_TTL_SECONDS', '300'))
+CACHE_BACKEND = os.getenv('CACHE_BACKEND', 'memory')
+REDIS_URL = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
+LOG_DIR = os.getenv('LOG_DIR', './logs')
 
 os.makedirs(LOG_DIR, exist_ok=True)
 
 
 def get_rpc_url() -> str:
-    """Get RPC endpoint URL based on provider or explicit RPC_URL env var.
-
-    Prioritize `RPC_URL` environment variable to avoid hardcoding provider URLs
-    in code. If not provided, build using provider-specific defaults.
-    """
-    explicit = os.getenv("RPC_URL")
-    if explicit:
-        return explicit
-    if UPSTREAM_RPC_URL:
-        return UPSTREAM_RPC_URL
+    """Get RPC endpoint URL based on provider"""
     if RPC_PROVIDER == 'alchemy':
         if not ALCHEMY_API_KEY:
             raise ValueError("ALCHEMY_API_KEY not set")
@@ -386,40 +334,8 @@ def get_tenant_logger(tenant_id: str) -> logging.Logger:
     return logger
 
 
-# TENANT LOADING / AUTH
-_paths_cfg = _services_cfg.get("paths", {})
-TENANT_CONFIG_PATH = os.getenv(
-    "TENANT_CONFIG_PATH",
-    _paths_cfg.get("tenant_config", "../watcher-service/config/tenants.yaml")
-)
-
-def _load_tenants(path: str) -> dict:
-    """Load tenants YAML and return dict mapping tenant_id -> config dict"""
-    try:
-        with open(path, 'r') as f:
-            data = yaml.safe_load(f) or {}
-        data = _interpolate_env(data)
-        tenants = data.get('tenants', {})
-
-        result = {}
-        if isinstance(tenants, list):
-            for t in tenants:
-                tid = t.get('id')
-                if tid:
-                    result[tid] = t
-        elif isinstance(tenants, dict):
-            for tid, cfg in tenants.items():
-                if isinstance(cfg, dict):
-                    cfg.setdefault('id', tid)
-                    result[tid] = cfg
-        return result
-    except Exception as e:
-        logging.error(f"Failed to load tenants from {path}: {e}")
-        return {}
-
-DEFAULT_TENANTS = ['dao-alpha', 'dao-beta', 'dao-gamma']
-_TENANTS = _load_tenants(TENANT_CONFIG_PATH)
-ALLOWED_TENANTS = list(_TENANTS.keys()) or DEFAULT_TENANTS
+# TENANT VALIDATION
+ALLOWED_TENANTS = ['dao-alpha', 'dao-beta', 'dao-gamma']
 
 
 def validate_tenant(tenant_id: str) -> bool:
@@ -599,7 +515,7 @@ async def web3_info():
 
 
 # STARTUP
-@app.lifespan("startup")
+@app.on_event("startup")
 async def startup_event():
     """Verify Web3 and cache connections on startup"""
     print(f"=== Blockchain Proxy Service ===")
@@ -632,18 +548,8 @@ async def startup_event():
     print(f"================================")
 
 
-# if __name__ == '__main__':
-#     import uvicorn
-#     port = int(os.getenv('PORT', '8000'))
-#     uvicorn.run(app, host='0.0.0.0', port=port)
-
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(
-        app,
-        host=SERVER_HOST,
-        port=SERVER_PORT,
-        log_level="info",
-        access_log=True
-    )
+    port = int(os.getenv("PORT", "8545"))
+    uvicorn.run(app, host="0.0.0.0", port=port)

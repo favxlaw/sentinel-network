@@ -1,29 +1,26 @@
 #!/bin/bash
 set -euo pipefail
 
-# Bastion host setup (Ubuntu 22.04)
-# - SSH hardening
-# - SSM access
-# - CloudWatch agent
-
 apt-get update -y
 apt-get install -y curl
 
-# Install CloudWatch agent from AWS
+# Install SSM agent via deb (not snap - more reliable)
+wget -q https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/debian_amd64/amazon-ssm-agent.deb
+dpkg -i amazon-ssm-agent.deb
+rm amazon-ssm-agent.deb
+systemctl enable amazon-ssm-agent
+systemctl start amazon-ssm-agent
+
+# Install CloudWatch agent
 curl -sO https://s3.amazonaws.com/amazoncloudwatch-agent/ubuntu/amd64/latest/amazon-cloudwatch-agent.deb
 dpkg -i amazon-cloudwatch-agent.deb
 rm amazon-cloudwatch-agent.deb
-
-# SSM agent is pre-installed via snap on Ubuntu 22.04 AWS AMI
-systemctl enable snap.amazon-ssm-agent.amazon-ssm-agent
-systemctl start snap.amazon-ssm-agent.amazon-ssm-agent
 
 # SSH hardening
 sed -i 's/^#*PasswordAuthentication .*/PasswordAuthentication no/' /etc/ssh/sshd_config
 sed -i 's/^#*PermitRootLogin .*/PermitRootLogin no/' /etc/ssh/sshd_config
 systemctl reload sshd
 
-# CloudWatch agent minimal config
 cat > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json <<'EOF_CW'
 {
   "metrics": {
@@ -61,7 +58,5 @@ cat > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json <<'EOF_C
 EOF_CW
 
 /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
-  -a fetch-config \
-  -m ec2 \
-  -s \
+  -a fetch-config -m ec2 -s \
   -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json

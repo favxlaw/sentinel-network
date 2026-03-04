@@ -4,19 +4,6 @@
 .env.*.local
 **/.env
 **/.env.local
-**/.env.*.local
-
-# Terraform
-**/.terraform/
-**/.terraform.lock.hcl
-**/terraform.tfstate
-**/terraform.tfstate.backup
-**/terraform.tfvars
-**/*.tfvars
-
-# Keys / certs
-**/*.pem
-**/*.key
 
 # Python
 __pycache__/
@@ -33,8 +20,14 @@ venv/
 venv
 watcher-service/config/tenants.yaml
 
-# Logs / runtime
-**/logs/
+# Terraform local state and secrets
+infra/.terraform/
+infra/.terraform.lock.hcl
+infra/*.tfstate
+infra/*.tfstate.*
+infra/*.tfvars
+infra/*.pem
 
-# IPFS runtime/state data (do not version)
+# Runtime data
 ipfs/data/
+watcher-service/logs/

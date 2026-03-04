@@ -118,3 +118,20 @@ variable "ipfs_api_port" {
   type        = number
   default     = 5001
 }
+
+variable "cloudwatch_namespace" {
+  description = "CloudWatch namespace for all Sentinel metrics"
+  type        = string
+  default     = "Sentinel/Monitoring"
+}
+
+variable "tenant_rate_limits" {
+  description = "Per-tenant NGINX rate limit 80% thresholds (requests per minute)"
+  type        = map(number)
+  default = {
+    "dao-alpha" = 80
+    "dao-beta"  = 40
+    "dao-gamma" = 160
+  }
+}
+

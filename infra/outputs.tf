@@ -23,12 +23,3 @@ output "backend_private_ip" {
   value       = aws_instance.backend.private_ip
 }
 
-output "events_bucket_name" {
-  description = "S3 bucket for tenant event archives"
-  value       = aws_s3_bucket.events.bucket
-}
-
-output "vpc_flow_log_group" {
-  description = "CloudWatch log group for VPC Flow Logs"
-  value       = aws_cloudwatch_log_group.vpc_flow.name
-}

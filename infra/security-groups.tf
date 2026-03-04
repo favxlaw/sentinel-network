@@ -1,3 +1,7 @@
+############################################
+# Bastion Security Group
+############################################
+
 resource "aws_security_group" "bastion" {
   name        = "sentinel-bastion-sg"
   description = "Bastion host security group"
@@ -19,13 +23,38 @@ resource "aws_security_group" "bastion" {
     cidr_blocks = [var.private_subnet_cidr]
   }
 
-  tags = merge(
-    var.common_tags,
-    {
-      Name = "sg-bastion-sentinel"
-    }
-  )
+  egress {
+    description = "HTTPS to internet for SSM and outbound"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    description = "HTTP to internet"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    description = "ICMP to public subnet for reachability checks"
+    from_port   = -1
+    to_port     = -1
+    protocol    = "icmp"
+    cidr_blocks = [var.public_subnet_cidr]
+  }
+
+  tags = merge(var.common_tags, {
+    Name = "sg-bastion-sentinel"
+  })
 }
+
+############################################
+# NAT Security Group
+############################################
 
 resource "aws_security_group" "nat" {
   name        = "sentinel-nat-sg"
@@ -40,41 +69,39 @@ resource "aws_security_group" "nat" {
     cidr_blocks = [var.private_subnet_cidr]
   }
 
-  egress {
-    description = "HTTP to internet"
-    from_port   = var.http_port
-    to_port     = var.http_port
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+  ingress {
+    description = "ICMP from public subnet"
+    from_port   = -1
+    to_port     = -1
+    protocol    = "icmp"
+    cidr_blocks = [var.public_subnet_cidr]
   }
 
   egress {
-    description = "HTTPS to internet"
-    from_port   = var.https_port
-    to_port     = var.https_port
-    protocol    = "tcp"
+    description = "Allow all outbound traffic"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  tags = merge(
-    var.common_tags,
-    {
-      Name = "sg-nat-sentinel"
-    }
-  )
+  tags = merge(var.common_tags, {
+    Name = "sg-nat-sentinel"
+  })
 }
+
+############################################
+# Service Security Groups
+############################################
 
 resource "aws_security_group" "nginx" {
   name        = "sentinel-nginx-sg"
   description = "NGINX gateway security group"
   vpc_id      = aws_vpc.sentinel.id
 
-  tags = merge(
-    var.common_tags,
-    {
-      Name = "sg-nginx-sentinel"
-    }
-  )
+  tags = merge(var.common_tags, {
+    Name = "sg-nginx-sentinel"
+  })
 }
 
 resource "aws_security_group" "proxy" {
@@ -82,12 +109,9 @@ resource "aws_security_group" "proxy" {
   description = "Blockchain proxy security group"
   vpc_id      = aws_vpc.sentinel.id
 
-  tags = merge(
-    var.common_tags,
-    {
-      Name = "sg-proxy-sentinel"
-    }
-  )
+  tags = merge(var.common_tags, {
+    Name = "sg-proxy-sentinel"
+  })
 }
 
 resource "aws_security_group" "watcher" {
@@ -95,12 +119,9 @@ resource "aws_security_group" "watcher" {
   description = "Watcher security group"
   vpc_id      = aws_vpc.sentinel.id
 
-  tags = merge(
-    var.common_tags,
-    {
-      Name = "sg-watcher-sentinel"
-    }
-  )
+  tags = merge(var.common_tags, {
+    Name = "sg-watcher-sentinel"
+  })
 }
 
 resource "aws_security_group" "ipfs" {
@@ -108,12 +129,9 @@ resource "aws_security_group" "ipfs" {
   description = "IPFS security group"
   vpc_id      = aws_vpc.sentinel.id
 
-  tags = merge(
-    var.common_tags,
-    {
-      Name = "sg-ipfs-sentinel"
-    }
-  )
+  tags = merge(var.common_tags, {
+    Name = "sg-ipfs-sentinel"
+  })
 }
 
 resource "aws_security_group" "aggregator" {
@@ -121,15 +139,14 @@ resource "aws_security_group" "aggregator" {
   description = "Aggregator security group"
   vpc_id      = aws_vpc.sentinel.id
 
-  tags = merge(
-    var.common_tags,
-    {
-      Name = "sg-aggregator-sentinel"
-    }
-  )
+  tags = merge(var.common_tags, {
+    Name = "sg-aggregator-sentinel"
+  })
 }
 
-# ---- Security group rules (split to avoid cyclic dependencies) ----
+############################################
+# NGINX Rules
+############################################
 
 resource "aws_security_group_rule" "nginx_https_in" {
   type              = "ingress"
@@ -164,12 +181,16 @@ resource "aws_security_group_rule" "nginx_fastapi_out" {
 resource "aws_security_group_rule" "nginx_https_out" {
   type              = "egress"
   security_group_id = aws_security_group.nginx.id
-  description       = "HTTPS to internet"
+  description       = "HTTPS to internet for SSM and outbound"
   from_port         = var.https_port
   to_port           = var.https_port
   protocol          = "tcp"
   cidr_blocks       = ["0.0.0.0/0"]
 }
+
+############################################
+# Proxy Rules
+############################################
 
 resource "aws_security_group_rule" "proxy_rpc_in" {
   type                     = "ingress"
@@ -191,6 +212,16 @@ resource "aws_security_group_rule" "proxy_ssh_in" {
   source_security_group_id = aws_security_group.bastion.id
 }
 
+resource "aws_security_group_rule" "proxy_http_out" {
+  type              = "egress"
+  security_group_id = aws_security_group.proxy.id
+  description       = "HTTP to internet via NAT"
+  from_port         = var.http_port
+  to_port           = var.http_port
+  protocol          = "tcp"
+  cidr_blocks       = ["0.0.0.0/0"]
+}
+
 resource "aws_security_group_rule" "proxy_https_out" {
   type              = "egress"
   security_group_id = aws_security_group.proxy.id
@@ -201,15 +232,9 @@ resource "aws_security_group_rule" "proxy_https_out" {
   cidr_blocks       = ["0.0.0.0/0"]
 }
 
-resource "aws_security_group_rule" "proxy_http_out" {
-  type              = "egress"
-  security_group_id = aws_security_group.proxy.id
-  description       = "HTTP to internet via NAT"
-  from_port         = var.http_port
-  to_port           = var.http_port
-  protocol          = "tcp"
-  cidr_blocks       = ["0.0.0.0/0"]
-}
+############################################
+# Watcher Rules
+############################################
 
 resource "aws_security_group_rule" "watcher_ssh_in" {
   type                     = "ingress"
@@ -231,55 +256,29 @@ resource "aws_security_group_rule" "watcher_rpc_out" {
   source_security_group_id = aws_security_group.proxy.id
 }
 
-resource "aws_security_group_rule" "watcher_ipfs_out" {
-  type                     = "egress"
-  security_group_id        = aws_security_group.watcher.id
-  description              = "IPFS API to IPFS"
-  from_port                = var.ipfs_api_port
-  to_port                  = var.ipfs_api_port
-  protocol                 = "tcp"
-  source_security_group_id = aws_security_group.ipfs.id
+resource "aws_security_group_rule" "watcher_https_out" {
+  type              = "egress"
+  security_group_id = aws_security_group.watcher.id
+  description       = "HTTPS to internet via NAT for SSM and outbound"
+  from_port         = 443
+  to_port           = 443
+  protocol          = "tcp"
+  cidr_blocks       = ["0.0.0.0/0"]
 }
 
 resource "aws_security_group_rule" "watcher_http_out" {
   type              = "egress"
   security_group_id = aws_security_group.watcher.id
   description       = "HTTP to internet via NAT"
-  from_port         = var.http_port
-  to_port           = var.http_port
+  from_port         = 80
+  to_port           = 80
   protocol          = "tcp"
   cidr_blocks       = ["0.0.0.0/0"]
 }
 
-resource "aws_security_group_rule" "watcher_https_out" {
-  type              = "egress"
-  security_group_id = aws_security_group.watcher.id
-  description       = "HTTPS to internet via NAT"
-  from_port         = var.https_port
-  to_port           = var.https_port
-  protocol          = "tcp"
-  cidr_blocks       = ["0.0.0.0/0"]
-}
-
-resource "aws_security_group_rule" "ipfs_api_from_watcher_in" {
-  type                     = "ingress"
-  security_group_id        = aws_security_group.ipfs.id
-  description              = "IPFS API from watcher"
-  from_port                = var.ipfs_api_port
-  to_port                  = var.ipfs_api_port
-  protocol                 = "tcp"
-  source_security_group_id = aws_security_group.watcher.id
-}
-
-resource "aws_security_group_rule" "ipfs_api_from_aggregator_in" {
-  type                     = "ingress"
-  security_group_id        = aws_security_group.ipfs.id
-  description              = "IPFS API from aggregator"
-  from_port                = var.ipfs_api_port
-  to_port                  = var.ipfs_api_port
-  protocol                 = "tcp"
-  source_security_group_id = aws_security_group.aggregator.id
-}
+############################################
+# IPFS Rules
+############################################
 
 resource "aws_security_group_rule" "ipfs_ssh_in" {
   type                     = "ingress"
@@ -291,24 +290,48 @@ resource "aws_security_group_rule" "ipfs_ssh_in" {
   source_security_group_id = aws_security_group.bastion.id
 }
 
-resource "aws_security_group_rule" "ipfs_http_out" {
-  type              = "egress"
-  security_group_id = aws_security_group.ipfs.id
-  description       = "HTTP to internet via NAT"
-  from_port         = var.http_port
-  to_port           = var.http_port
-  protocol          = "tcp"
-  cidr_blocks       = ["0.0.0.0/0"]
+resource "aws_security_group_rule" "ipfs_api_in" {
+  type                     = "ingress"
+  security_group_id        = aws_security_group.ipfs.id
+  description              = "IPFS API from aggregator"
+  from_port                = var.ipfs_api_port
+  to_port                  = var.ipfs_api_port
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.aggregator.id
 }
 
 resource "aws_security_group_rule" "ipfs_https_out" {
   type              = "egress"
   security_group_id = aws_security_group.ipfs.id
-  description       = "HTTPS to internet via NAT"
-  from_port         = var.https_port
-  to_port           = var.https_port
+  description       = "HTTPS to internet via NAT for SSM and outbound"
+  from_port         = 443
+  to_port           = 443
   protocol          = "tcp"
   cidr_blocks       = ["0.0.0.0/0"]
+}
+
+resource "aws_security_group_rule" "ipfs_http_out" {
+  type              = "egress"
+  security_group_id = aws_security_group.ipfs.id
+  description       = "HTTP to internet via NAT"
+  from_port         = 80
+  to_port           = 80
+  protocol          = "tcp"
+  cidr_blocks       = ["0.0.0.0/0"]
+}
+
+############################################
+# Aggregator Rules
+############################################
+
+resource "aws_security_group_rule" "aggregator_ssh_in" {
+  type                     = "ingress"
+  security_group_id        = aws_security_group.aggregator.id
+  description              = "SSH from bastion"
+  from_port                = var.ssh_port
+  to_port                  = var.ssh_port
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.bastion.id
 }
 
 resource "aws_security_group_rule" "aggregator_fastapi_in" {
@@ -321,42 +344,32 @@ resource "aws_security_group_rule" "aggregator_fastapi_in" {
   source_security_group_id = aws_security_group.nginx.id
 }
 
-resource "aws_security_group_rule" "aggregator_ssh_in" {
-  type                     = "ingress"
-  security_group_id        = aws_security_group.aggregator.id
-  description              = "SSH from bastion"
-  from_port                = var.ssh_port
-  to_port                  = var.ssh_port
-  protocol                 = "tcp"
-  source_security_group_id = aws_security_group.bastion.id
-}
-
 resource "aws_security_group_rule" "aggregator_ipfs_out" {
   type                     = "egress"
   security_group_id        = aws_security_group.aggregator.id
-  description              = "IPFS API to IPFS"
+  description              = "IPFS API to ipfs SG"
   from_port                = var.ipfs_api_port
   to_port                  = var.ipfs_api_port
   protocol                 = "tcp"
   source_security_group_id = aws_security_group.ipfs.id
 }
 
-resource "aws_security_group_rule" "aggregator_http_out" {
+resource "aws_security_group_rule" "aggregator_https_out" {
   type              = "egress"
   security_group_id = aws_security_group.aggregator.id
-  description       = "HTTP to internet via NAT"
-  from_port         = var.http_port
-  to_port           = var.http_port
+  description       = "HTTPS to internet via NAT for SSM and outbound"
+  from_port         = 443
+  to_port           = 443
   protocol          = "tcp"
   cidr_blocks       = ["0.0.0.0/0"]
 }
 
-resource "aws_security_group_rule" "aggregator_https_out" {
+resource "aws_security_group_rule" "aggregator_http_out" {
   type              = "egress"
   security_group_id = aws_security_group.aggregator.id
-  description       = "HTTPS to internet via NAT"
-  from_port         = var.https_port
-  to_port           = var.https_port
+  description       = "HTTP to internet via NAT"
+  from_port         = 80
+  to_port           = 80
   protocol          = "tcp"
   cidr_blocks       = ["0.0.0.0/0"]
 }
