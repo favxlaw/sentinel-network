@@ -1,0 +1,31 @@
+# Sentinel Network Terraform Variables
+# Copy this file to terraform.tfvars and customize for your environment
+
+# AWS Configuration
+aws_region = "us-east-1"
+
+# Project Configuration
+project_name = "sentinel"
+
+common_tags = {
+  Project     = "Sentinel Network"
+  ManagedBy   = "Terraform"
+  Environment = "production"
+  Owner       = "DevOps Team"
+  CostCenter  = "Engineering"
+}
+
+# SSH access
+admin_ip = "203.0.113.10/32"
+key_name = "sentinel-keypair"
+
+# Network Configuration
+vpc_cidr            = "10.0.0.0/16"
+public_subnet_cidr  = "10.0.1.0/24"
+private_subnet_cidr = "10.0.10.0/24"
+availability_zone   = "us-east-1a"
+
+# Instance Configuration
+bastion_instance_type = "t2.micro"
+nginx_instance_type   = "t2.micro"
+backend_instance_type = "t2.small"

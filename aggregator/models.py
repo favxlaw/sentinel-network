@@ -1,31 +1,12 @@
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator, validator
 from typing import Optional, List
 from datetime import datetime
 
-class AddAddressRequest(BaseModel):
-    address: str = Field(
-        description="Ethereum address to monitor (must start with 0x)",
-        example="0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb",
-        min_length=42,  # Ethereum addresses are exactly 42 characters
-        max_length=42
-    )
-
-    @validator('address')
-    def validate_ethereum_address(cls, v):
-        if not v.startswith('0x'):
-            raise ValueError('Address must start with 0x')
-        if len(v) != 42:
-            raise ValueError('Address must be exactly 42 characters (0x + 40 hex digits)')
-        try:
-            int(v[2:], 16)  # Try to parse as hexadecimal
-        except ValueError:
-            raise ValueError('Address must contain only valid hexadecimal characters')
-        
-        # Return lowercase version (Ethereum addresses are case-insensitive)
-        return v.lower()
-    
-    class EventResponse(BaseModel):
-         tx_hash: str = Field(
+class EventResponse(BaseModel):
+    """
+    Event response model for API responses.
+    """
+    tx_hash: str = Field(
         ...,
         description="Transaction hash (unique identifier)",
         example="0xabc123def456..."
@@ -81,6 +62,31 @@ class AddAddressRequest(BaseModel):
         """
         orm_mode = True
 
+
+class AddAddressRequest(BaseModel):
+    """Request model for adding a new address to watch"""
+    address: str = Field(
+        description="Ethereum address to monitor (must start with 0x)",
+        example="0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb",
+        min_length=42,  # Ethereum addresses are exactly 42 characters
+        max_length=42
+    )
+
+    @field_validator('address')
+    def validate_ethereum_address(cls, v):
+        if not v.startswith('0x'):
+            raise ValueError('Address must start with 0x')
+        if len(v) != 42:
+            raise ValueError('Address must be exactly 42 characters (0x + 40 hex digits)')
+        try:
+            int(v[2:], 16)  # Try to parse as hexadecimal
+        except ValueError:
+            raise ValueError('Address must contain only valid hexadecimal characters')
+        
+        # Return lowercase version (Ethereum addresses are case-insensitive)
+        return v.lower()
+
+
 class ReceiptResponse(BaseModel):
     """
     Full event receipt from IPFS (more detailed than EventResponse).
@@ -133,19 +139,6 @@ class ReceiptResponse(BaseModel):
 
 
 class AddressAddedResponse(BaseModel):
-    """
-    Response when successfully adding a new address to watch.
-    
-    Example JSON:
-    {
-        "status": "success",
-        "message": "Added address 0x742d35... to watch list",
-        "tenant_id": "dao-alpha",
-        "address": "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb",
-        "note": "Watcher service will need to reload config..."
-    }
-    """
-    
     status: str = Field(..., example="success")
     message: str
     tenant_id: str
@@ -200,20 +193,6 @@ class HealthCheckResponse(BaseModel):
 
 
 class ErrorResponse(BaseModel):
-    """
-    Standard error response format.
-    
-    All errors from the API follow this structure for consistency.
-    
-    Example JSON:
-    {
-        "error": "Invalid API key",
-        "status_code": 401,
-        "timestamp": "2026-01-23T10:30:00",
-        "detail": "The provided API key does not match any tenant"
-    }
-    """
-    
     error: str = Field(..., description="Error message")
     status_code: int = Field(..., description="HTTP status code")
     timestamp: str = Field(..., description="When the error occurred")
