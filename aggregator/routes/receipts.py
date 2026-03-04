@@ -1,99 +1,53 @@
-"""
-routes/receipts.py - Receipt Information Endpoints
-
-Returns receipt information (CID and event details) for significant events.
-The actual IPFS retrieval is handled by the client or IPFS node directly.
-"""
+import logging
+from typing import Any, Dict
 
 from fastapi import APIRouter, Depends, HTTPException, status
-import logging
 
-# Import custom modules
 from auth import get_current_tenant
-from database import get_event_by_hash, DatabaseError
-from models import EventResponse, ErrorResponse
+from ipfs_client import IPFSClient
+from models import ErrorResponse
 
 logger = logging.getLogger(__name__)
-
-# Create router
 router = APIRouter()
+ipfs_client = IPFSClient()
 
 
 @router.get(
-    "/api/v1/receipt/{tx_hash}",
-    response_model=EventResponse,
-    summary="Retrieve event receipt (CID) from database",
-    description="""
-    Fetch a stored event receipt using its transaction hash.
-    
-    If the event has an IPFS CID, it's included in the response.
-    Only receipts for your tenant's events can be retrieved.
-    
-    ## Parameters
-    - **tx_hash**: Transaction hash (0x...)
-    
-    ## Response
-    Returns the event with IPFS CID if this was a significant event.
-    
-    The CID can then be used to retrieve the full receipt from IPFS if needed.
-    
-    ## Example
-    ```
-    curl -H "X-Tenant-Key: your-api-key" \\
-      http://api.sentinel.local/api/v1/receipt/0xabc123def456...
-    ```
-    """,
+    "/api/v1/receipt/{cid}",
+    response_model=Dict[str, Any],
+    summary="Fetch receipt content from IPFS",
     responses={
-        200: {"description": "Receipt found and returned"},
+        200: {"description": "Receipt content returned"},
         401: {"description": "Unauthorized - invalid API key", "model": ErrorResponse},
         404: {"description": "Receipt not found", "model": ErrorResponse},
-        500: {"description": "Server error", "model": ErrorResponse}
-    }
+        500: {"description": "Server error", "model": ErrorResponse},
+    },
 )
 def get_receipt(
-    tx_hash: str,
-    tenant_id: str = Depends(get_current_tenant)
-) -> EventResponse:
-    """
-    Retrieve event receipt from database.
-    
-    Args:
-        tx_hash: Transaction hash
-        tenant_id: Authenticated tenant (from X-Tenant-Key header)
-    
-    Returns:
-        EventResponse with event details and IPFS CID if available
-    
-    Raises:
-        404: If event not found in database
-        500: If database error occurs
-    """
-    
+    cid: str,
+    tenant_id: str = Depends(get_current_tenant),
+) -> Dict[str, Any]:
     try:
-        # Get event from database
-        event = get_event_by_hash(tenant_id, tx_hash)
-        
-        if not event:
-            logger.warning(f"Receipt not found for tx_hash: {tx_hash}, tenant: {tenant_id}")
+        receipt = ipfs_client.get_json(cid)
+        if not receipt:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Receipt with tx_hash {tx_hash} not found"
+                detail=f"Receipt with CID {cid} not found",
             )
-        
-        logger.info(f"Retrieved receipt {tx_hash} for tenant {tenant_id}")
-        return EventResponse(**event)
-    
-    except DatabaseError as e:
-        logger.error(f"Database error retrieving receipt {tx_hash}: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve receipt from database"
-        )
+
+        payload_tenant = receipt.get("tenant_id") if isinstance(receipt, dict) else None
+        if payload_tenant and payload_tenant != tenant_id:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Receipt with CID {cid} not found",
+            )
+
+        return receipt
     except HTTPException:
         raise
-    except Exception as e:
-        logger.error(f"Unexpected error retrieving receipt {tx_hash}: {e}")
+    except Exception as exc:
+        logger.error("Unexpected error retrieving CID %s: %s", cid, exc)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve receipt"
+            detail="Failed to retrieve receipt",
         )
