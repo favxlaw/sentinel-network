@@ -110,7 +110,7 @@ variable "ethereum_rpc_port" {
 variable "fastapi_port" {
   description = "Aggregator API port"
   type        = number
-  default     = 8000
+  default     = 8006
 }
 
 variable "ipfs_api_port" {
@@ -134,4 +134,11 @@ variable "tenant_rate_limits" {
     "dao-gamma" = 160
   }
 }
+
+variable "base_domain" {
+  description = "Base domain for NGINX virtual hosting"
+  type        = string
+  default     = "sentinel.local"
+}
+
 
