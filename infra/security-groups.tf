@@ -144,6 +144,18 @@ resource "aws_security_group" "aggregator" {
   })
 }
 
+resource "aws_security_group" "tenant" {
+  for_each    = toset(var.tenant_ids)
+  name        = "sentinel-${each.key}-sg"
+  description = "Tenant security group for ${each.key}"
+  vpc_id      = aws_vpc.sentinel.id
+
+  tags = merge(var.common_tags, {
+    Name   = "sg-${each.key}-sentinel"
+    Tenant = each.key
+  })
+}
+
 ############################################
 # NGINX Rules
 ############################################
@@ -371,5 +383,42 @@ resource "aws_security_group_rule" "aggregator_http_out" {
   from_port         = 80
   to_port           = 80
   protocol          = "tcp"
+  cidr_blocks       = ["0.0.0.0/0"]
+}
+
+############################################
+# Tenant Rules
+############################################
+
+resource "aws_security_group_rule" "tenant_https_in" {
+  for_each                 = aws_security_group.tenant
+  type                     = "ingress"
+  security_group_id        = each.value.id
+  description              = "HTTPS from NGINX"
+  from_port                = 443
+  to_port                  = 443
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.nginx.id
+}
+
+resource "aws_security_group_rule" "tenant_fastapi_in" {
+  for_each                 = aws_security_group.tenant
+  type                     = "ingress"
+  security_group_id        = each.value.id
+  description              = "FastAPI from NGINX"
+  from_port                = var.fastapi_port
+  to_port                  = var.fastapi_port
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.nginx.id
+}
+
+resource "aws_security_group_rule" "tenant_all_out" {
+  for_each          = aws_security_group.tenant
+  type              = "egress"
+  security_group_id = each.value.id
+  description       = "Allow all outbound"
+  from_port         = 0
+  to_port           = 0
+  protocol          = "-1"
   cidr_blocks       = ["0.0.0.0/0"]
 }

@@ -224,7 +224,13 @@ resource "aws_instance" "nginx" {
 
   associate_public_ip_address = true
 
-  user_data                   = file("${path.module}/user-data/nginx.sh")
+  user_data = templatefile("${path.module}/user-data/nginx.sh.tftpl", {
+    backend_private_ip      = aws_instance.backend.private_ip
+    fastapi_port            = var.fastapi_port
+    tenant_ids_json         = jsonencode(var.tenant_ids)
+    tenant_rate_limits_json = jsonencode(var.tenant_rate_limits)
+    base_domain             = var.base_domain
+  })
   user_data_replace_on_change = true
 
   iam_instance_profile = aws_iam_instance_profile.nginx.name
@@ -264,12 +270,15 @@ resource "aws_instance" "backend" {
   ami           = data.aws_ami.ubuntu_2204.id
   instance_type = var.backend_instance_type
   subnet_id     = aws_subnet.private.id
-  vpc_security_group_ids = [
-    aws_security_group.proxy.id,
-    aws_security_group.watcher.id,
-    aws_security_group.ipfs.id,
-    aws_security_group.aggregator.id
-  ]
+  vpc_security_group_ids = concat(
+    [
+      aws_security_group.proxy.id,
+      aws_security_group.watcher.id,
+      aws_security_group.ipfs.id,
+      aws_security_group.aggregator.id
+    ],
+    [for t in aws_security_group.tenant : t.id]
+  )
   key_name = var.key_name
 
   private_ip = "10.0.10.20"

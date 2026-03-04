@@ -19,15 +19,3 @@ build/
 venv/
 venv
 watcher-service/config/tenants.yaml
-
-# Terraform local state and secrets
-infra/.terraform/
-infra/.terraform.lock.hcl
-infra/*.tfstate
-infra/*.tfstate.*
-infra/*.tfvars
-infra/*.pem
-
-# Runtime data
-ipfs/data/
-watcher-service/logs/
