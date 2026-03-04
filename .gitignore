@@ -32,3 +32,8 @@ infra/*.pem
 # Runtime data
 ipfs/data/
 watcher-service/logs/
+.local-ipfs/
+watcher-service/watcher.db
+watcher-service/watcher.db-journal
+blockchain-proxy/logs/
+*.tar.gz*
