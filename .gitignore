@@ -19,6 +19,7 @@ build/
 venv/
 venv
 watcher-service/config/tenants.yaml
+config/tenants.yaml
 
 # Terraform local state and secrets
 infra/.terraform/

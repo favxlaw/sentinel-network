@@ -1,0 +1,18 @@
+tenants:
+  - id: "dao-alpha"
+    api_key: "CHANGE_ME_ALPHA_API_KEY"
+    watch_addresses:
+      - "0x1111111111111111111111111111111111111111"
+    alert_threshold_eth: 10
+
+  - id: "dao-beta"
+    api_key: "CHANGE_ME_BETA_API_KEY"
+    watch_addresses:
+      - "0x2222222222222222222222222222222222222222"
+    alert_threshold_eth: 10
+
+  - id: "dao-gamma"
+    api_key: "CHANGE_ME_GAMMA_API_KEY"
+    watch_addresses:
+      - "0x3333333333333333333333333333333333333333"
+    alert_threshold_eth: 10

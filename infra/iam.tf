@@ -91,7 +91,7 @@ resource "aws_iam_role_policy" "backend" {
         Resource = "*"
         Condition = {
           StringEquals = {
-            "cloudwatch:namespace" = "Sentinel/Monitoring"
+            "cloudwatch:namespace" = ["Sentinel/Monitoring", "CWAgent"]
           }
         }
       },
@@ -161,4 +161,19 @@ resource "aws_iam_instance_profile" "nginx" {
 resource "aws_iam_role_policy_attachment" "nginx_ssm_core" {
   role       = aws_iam_role.nginx.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+}
+
+resource "aws_iam_role_policy_attachment" "ops_cloudwatch" {
+  role       = aws_iam_role.ops.name
+  policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
+}
+
+resource "aws_iam_role_policy_attachment" "backend_cloudwatch" {
+  role       = aws_iam_role.backend.name
+  policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
+}
+
+resource "aws_iam_role_policy_attachment" "nginx_cloudwatch" {
+  role       = aws_iam_role.nginx.name
+  policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
 }
