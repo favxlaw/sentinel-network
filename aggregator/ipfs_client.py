@@ -17,7 +17,9 @@ class IPFSClient:
         Args:
             api_url: IPFS API endpoint (default from .env)
         """
-        self.api_url = api_url or os.getenv('IPFS_API_URL', 'http://127.0.0.1:5001')
+        ipfs_host = os.getenv('IPFS_HOST', '127.0.0.1')
+        ipfs_port = os.getenv('IPFS_PORT', '5001')
+        self.api_url = api_url or os.getenv('IPFS_API_URL') or f"http://{ipfs_host}:{ipfs_port}"
         self.enabled = False
         
         # Try to connect to IPFS
