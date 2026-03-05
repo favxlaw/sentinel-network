@@ -144,6 +144,16 @@ resource "aws_security_group" "aggregator" {
   })
 }
 
+resource "aws_security_group" "backend" {
+  name        = "sentinel-backend-sg"
+  description = "Consolidated backend security group"
+  vpc_id      = aws_vpc.sentinel.id
+
+  tags = merge(var.common_tags, {
+    Name = "sg-backend-sentinel"
+  })
+}
+
 resource "aws_security_group" "tenant" {
   for_each    = toset(var.tenant_ids)
   name        = "sentinel-${each.key}-sg"
@@ -421,4 +431,88 @@ resource "aws_security_group_rule" "tenant_all_out" {
   to_port           = 0
   protocol          = "-1"
   cidr_blocks       = ["0.0.0.0/0"]
+}
+
+############################################
+# Consolidated Backend Rules
+############################################
+
+resource "aws_security_group_rule" "backend_ssh_in" {
+  type                     = "ingress"
+  security_group_id        = aws_security_group.backend.id
+  description              = "SSH from bastion"
+  from_port                = var.ssh_port
+  to_port                  = var.ssh_port
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.bastion.id
+}
+
+resource "aws_security_group_rule" "backend_fastapi_in" {
+  type                     = "ingress"
+  security_group_id        = aws_security_group.backend.id
+  description              = "FastAPI from NGINX"
+  from_port                = var.fastapi_port
+  to_port                  = var.fastapi_port
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.nginx.id
+}
+
+resource "aws_security_group_rule" "backend_rpc_in" {
+  type                     = "ingress"
+  security_group_id        = aws_security_group.backend.id
+  description              = "JSON-RPC internal"
+  from_port                = var.ethereum_rpc_port
+  to_port                  = var.ethereum_rpc_port
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.backend.id
+}
+
+resource "aws_security_group_rule" "backend_ipfs_api_in" {
+  type                     = "ingress"
+  security_group_id        = aws_security_group.backend.id
+  description              = "IPFS API internal"
+  from_port                = var.ipfs_api_port
+  to_port                  = var.ipfs_api_port
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.backend.id
+}
+
+resource "aws_security_group_rule" "backend_http_out" {
+  type              = "egress"
+  security_group_id = aws_security_group.backend.id
+  description       = "HTTP to internet via NAT"
+  from_port         = var.http_port
+  to_port           = var.http_port
+  protocol          = "tcp"
+  cidr_blocks       = ["0.0.0.0/0"]
+}
+
+resource "aws_security_group_rule" "backend_https_out" {
+  type              = "egress"
+  security_group_id = aws_security_group.backend.id
+  description       = "HTTPS to internet via NAT for SSM and outbound"
+  from_port         = var.https_port
+  to_port           = var.https_port
+  protocol          = "tcp"
+  cidr_blocks       = ["0.0.0.0/0"]
+}
+
+resource "aws_security_group_rule" "backend_rpc_out" {
+  type                     = "egress"
+  security_group_id        = aws_security_group.backend.id
+  description              = "JSON-RPC internal"
+  from_port                = var.ethereum_rpc_port
+  to_port                  = var.ethereum_rpc_port
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.backend.id
+}
+
+resource "aws_security_group_rule" "backend_ipfs_api_out" {
+  type                     = "egress"
+  security_group_id        = aws_security_group.backend.id
+  description              = "IPFS API internal"
+  from_port                = var.ipfs_api_port
+  to_port                  = var.ipfs_api_port
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.backend.id
 }

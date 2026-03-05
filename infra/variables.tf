@@ -1,6 +1,6 @@
 # Core configuration
 variable "project_name" {
-  description = "Project name for tagging"
+  default = "sentinel"
   type        = string
 }
 
@@ -28,7 +28,7 @@ variable "admin_ip" {
 }
 
 variable "key_name" {
-  description = "EC2 key pair name for SSH"
+  default = "sentinel-keypair"
   type        = string
 }
 

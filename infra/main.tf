@@ -271,12 +271,7 @@ resource "aws_instance" "backend" {
   instance_type = var.backend_instance_type
   subnet_id     = aws_subnet.private.id
   vpc_security_group_ids = concat(
-    [
-      aws_security_group.proxy.id,
-      aws_security_group.watcher.id,
-      aws_security_group.ipfs.id,
-      aws_security_group.aggregator.id
-    ],
+    [aws_security_group.backend.id],
     [for t in aws_security_group.tenant : t.id]
   )
   key_name = var.key_name

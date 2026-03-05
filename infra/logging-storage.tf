@@ -237,7 +237,7 @@ resource "aws_cloudwatch_metric_alarm" "ipfs_unhealthy" {
 ############################################
 
 resource "aws_s3_bucket" "events" {
-  bucket        = "${var.project_name}-events-${data.aws_caller_identity.current.account_id}"
+  bucket = lower("${var.project_name}-events-${data.aws_caller_identity.current.account_id}")
   force_destroy = false
 
   tags = merge(var.common_tags, {
