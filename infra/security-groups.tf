@@ -197,7 +197,7 @@ resource "aws_security_group_rule" "nginx_fastapi_out" {
   from_port                = var.fastapi_port
   to_port                  = var.fastapi_port
   protocol                 = "tcp"
-  source_security_group_id = aws_security_group.aggregator.id
+  source_security_group_id = aws_security_group.backend.id
 }
 
 resource "aws_security_group_rule" "nginx_https_out" {

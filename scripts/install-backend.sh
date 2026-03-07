@@ -184,6 +184,53 @@ else
   echo "Warning: Could not get latest block - watcher will start from beginning"
 fi
 
+cat > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json << 'EOF_CW'
+{
+  "agent": {
+    "metrics_collection_interval": 60,
+    "run_as_user": "root"
+  },
+  "metrics": {
+    "namespace": "Sentinel/Backend",
+    "metrics_collected": {
+      "cpu": {
+        "measurement": ["cpu_usage_idle"],
+        "metrics_collection_interval": 60
+      },
+      "mem": {
+        "measurement": ["mem_used_percent"],
+        "metrics_collection_interval": 60
+      },
+      "disk": {
+        "measurement": ["disk_used_percent"],
+        "resources": ["/", "/data"],
+        "metrics_collection_interval": 60
+      }
+    }
+  },
+  "logs": {
+    "logs_collected": {
+      "files": {
+        "collect_list": [
+          {
+            "file_path": "/var/log/sentinel/*.log",
+            "log_group_name": "/sentinel/backend",
+            "log_stream_name": "{instance_id}"
+          }
+        ]
+      }
+    }
+  }
+}
+EOF_CW
+
+/opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
+  -a fetch-config -m ec2 -s \
+  -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+
+systemctl enable amazon-cloudwatch-agent
+systemctl start amazon-cloudwatch-agent
+
 echo "============================================"
 echo "All Sentinel services installed and started"
 echo "============================================"
@@ -200,3 +247,4 @@ echo ""
 echo "3. Restart services after updating keys:"
 echo "   sudo systemctl restart blockchain-proxy aggregator watcher"
 echo "============================================"
+

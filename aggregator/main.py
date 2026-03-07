@@ -96,7 +96,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
             "error": "Validation error",
             "detail": str(exc),
             "status_code": 400,
-            "timestamp": datetime.timezone.utc().isoformat()
+            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()
         }
     )
 
@@ -111,7 +111,7 @@ async def general_exception_handler(request: Request, exc: Exception):
             "error": "Internal server error",
             "detail": "An unexpected error occurred. Please try again later.",
             "status_code": 500,
-            "timestamp": datetime.timezone.utc().isoformat()
+            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()
         }
     )
 
