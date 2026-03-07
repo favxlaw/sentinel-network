@@ -38,7 +38,7 @@ bash "$${APP_DIR}/nginx/install.sh" \
     "$${TENANT_IDS_JSON}" \
     "$${TENANT_RATE_LIMITS_JSON}" \
     "$${BASE_DOMAIN}"
-fi
+
 
 # CloudWatch agent config for NGINX logs
 cat > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json <<'EOF_CW'

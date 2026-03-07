@@ -210,6 +210,16 @@ resource "aws_security_group_rule" "nginx_https_out" {
   cidr_blocks       = ["0.0.0.0/0"]
 }
 
+resource "aws_security_group_rule" "nginx_http_out" {
+  type              = "egress"
+  security_group_id = aws_security_group.nginx.id
+  description       = "HTTP to internet for apt-get"
+  from_port         = 80
+  to_port           = 80
+  protocol          = "tcp"
+  cidr_blocks       = ["0.0.0.0/0"]
+}
+
 ############################################
 # Proxy Rules
 ############################################
