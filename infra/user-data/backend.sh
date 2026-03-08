@@ -21,7 +21,6 @@ done
 # Now safe to apt
 apt-get update -y
 apt-get install -y python3 python3-pip python3-venv git curl ca-certificates gnupg lsb-release
-apt-get install -y sqlite3
 
 # Install Docker
 install -m 0755 -d /etc/apt/keyrings
@@ -80,3 +79,9 @@ if [ -f "$APP_DIR/scripts/install-backend.sh" ]; then
   bash "$APP_DIR/scripts/install-backend.sh"
 fi
 
+if [ -f "$APP_DIR/config/cloudwatch-agent.json" ]; then
+  cp "$APP_DIR/config/cloudwatch-agent.json" /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+  /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
+    -a fetch-config -m ec2 -s \
+    -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+fi

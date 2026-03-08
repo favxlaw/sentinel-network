@@ -84,22 +84,17 @@ resource "aws_iam_role_policy" "backend" {
         }
       },
       {
-  Effect = "Allow"
-  Action = ["cloudwatch:PutMetricData"]
-  Resource = "*"
-  Condition = {
-    StringEquals = {
-      "cloudwatch:namespace" = [
-        "Sentinel/Monitoring",
-        "Sentinel/Backend",
-        "Sentinel/NAT",
-        "Sentinel/NGINX",
-        "Sentinel/Bastion",
-        "CWAgent"
-      ]
-    }
-  }
-},
+        Effect = "Allow"
+        Action = [
+          "cloudwatch:PutMetricData"
+        ]
+        Resource = "*"
+        Condition = {
+          StringEquals = {
+            "cloudwatch:namespace" = ["Sentinel/Monitoring", "CWAgent"]
+          }
+        }
+      },
       {
         Effect = "Allow"
         Action = [
