@@ -2,7 +2,7 @@
 set -euo pipefail
 
 apt-get update -y
-apt-get install -y curl
+apt-get install -y curl wget
 
 # Install SSM agent via deb (not snap - more reliable)
 wget -q https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/debian_amd64/amazon-ssm-agent.deb
